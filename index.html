@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Validasi Dokumen & Foto Karyawan (Fast Mode)</title>
+  <title>Validasi Dokumen & Foto Karyawan (Turbo v2)</title>
   
   <!-- Library SheetJS untuk baca/tulis Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Library PDF.js untuk merender lampiran PDF menjadi Canvas -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Library Tesseract.js sebagai fallback OCR -->
+  <!-- Library Tesseract.js untuk OCR cepat -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <style>
@@ -41,15 +41,30 @@
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.06);
     }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
     h1 {
-      margin-top: 0;
+      margin: 0;
       font-size: 22px;
       color: var(--primary);
+    }
+    .version-badge {
+      background: #dbeafe;
+      color: #1e40af;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
     }
     .desc {
       font-size: 14px;
       color: #475569;
-      margin-bottom: 20px;
+      margin: 10px 0 20px 0;
       line-height: 1.5;
     }
     .ai-box {
@@ -78,7 +93,7 @@
     }
     .ai-row input[type="password"] {
       flex: 1;
-      min-width: 240px;
+      min-width: 220px;
     }
     .ai-hint {
       font-size: 12px;
@@ -329,29 +344,33 @@
 <body>
 
 <div class="container">
-  <h1>Sistem Pengecekan Kualitas & Kesesuaian Dokumen Karyawan (Turbo Mode)</h1>
+  <div class="header-row">
+    <h1>Sistem Pengecekan Kualitas & Kesesuaian Dokumen Karyawan</h1>
+    <span class="version-badge">TURBO v2.0 (8x Paralel + Smart Hybrid AI)</span>
+  </div>
   <p class="desc">
-    Mendukung pengecekan dokumen fisik maupun dokumen digital/screenshot aplikasi resmi pemerintah (<b>IKD KTP Digital, JMO BPJS Ketenagakerjaan, Mobile JKN</b>) dengan <b>Parallel Batch Processing</b> dan <b>GitHub Vision AI</b>.
+    Mendukung pengecekan dokumen fisik maupun digital (<b>IKD KTP Digital, JMO BPJS Ketenagakerjaan, Mobile JKN</b>). Menggunakan <b>Smart Hybrid Mode</b> agar puluhan hingga ratusan karyawan selesai dalam hitungan detik tanpa tertahan limit API.
   </p>
 
-  <!-- Konfigurasi GitHub AI -->
+  <!-- Konfigurasi Mode & GitHub AI -->
   <div class="ai-box">
-    <h3>Integrasi GitHub Models AI & Kecepatan Proses</h3>
+    <h3>Pengaturan Kecepatan & GitHub Models AI</h3>
     <div class="ai-row">
-      <input type="password" id="githubTokenInput" placeholder="Tempel GitHub Token (ghp_... / github_pat_...) - Opsional" />
-      <select id="aiModelSelect">
-        <option value="gpt-4o-mini" selected>Model: gpt-4o-mini (Cepat)</option>
-        <option value="gpt-4o">Model: gpt-4o</option>
+      <select id="checkModeSelect" title="Pilih strategi pengecekan">
+        <option value="HYBRID" selected>Mode: Smart Hybrid (Super Cepat &lt; 1 Menit + AI untuk kasus ragu)</option>
+        <option value="FAST_LOCAL">Mode: Full Lokal Paralel (Tercepat &amp; Tanpa Batas Kuota)</option>
+        <option value="FULL_AI">Mode: Full GitHub Vision AI (Semua dicek AI — kena limit 15 file/menit)</option>
       </select>
+      <input type="password" id="githubTokenInput" placeholder="Token GitHub (ghp_... / github_pat_...) - Opsional" />
       <select id="concurrencySelect" title="Jumlah file diproses bersamaan">
-        <option value="5" selected>Kecepatan: 5 File Paralel (Direkomendasikan)</option>
-        <option value="8">Kecepatan: 8 File Paralel (Super Cepat)</option>
-        <option value="3">Kecepatan: 3 File Paralel (Hemat Bandwidth)</option>
+        <option value="8" selected>8 File Paralel (Super Cepat)</option>
+        <option value="5">5 File Paralel</option>
+        <option value="12">12 File Paralel (Maksimal)</option>
       </select>
       <button class="btn" style="padding: 9px 14px; font-size: 13px;" onclick="saveToken()">Simpan Token</button>
     </div>
     <div class="ai-hint" id="tokenStatusHint">
-      *Token disimpan lokal di browser Anda. Tanpa token pun sistem otomatis berjalan cepat menggunakan Multi-Worker OCR + Laplacian lokal.
+      *Gunakan <b>Mode Smart Hybrid</b> agar pengecekan 29+ karyawan selesai dalam ±30–60 detik dan hemat kuota token GitHub AI.
     </div>
   </div>
 
@@ -366,14 +385,14 @@
 
     <div class="upload-card">
       <h3>2. Upload File Dokumen / Foto Lokal (Opsional)</h3>
-      <p>Pilih banyak file sekaligus (PDF/JPEG/PNG). Pengecekan file lokal berjalan instan tanpa perlu download dari internet.</p>
+      <p>Pilih banyak file sekaligus (PDF/JPEG/PNG). Pengecekan file lokal berjalan instan tanpa download internet.</p>
       <input type="file" id="localDocsInput" accept="image/*,.pdf" multiple />
       <div class="file-info" id="localDocsInfo"></div>
     </div>
   </div>
 
   <div class="action-bar">
-    <button class="btn" id="btnProcess" disabled>Mulai Pengecekan Cepat</button>
+    <button class="btn" id="btnProcess" disabled>Mulai Pengecekan Turbo</button>
     <button class="btn btn-success" id="btnDownload" disabled>Download Report Excel (.xlsx)</button>
   </div>
 
@@ -537,10 +556,12 @@
     return mins > 0 ? `${mins} menit ${remSecs} detik` : `${remSecs} detik`;
   }
 
+  // 4 Worker OCR paralel untuk kecepatan tinggi
   async function getOcrScheduler() {
     if (ocrScheduler) return ocrScheduler;
     const scheduler = Tesseract.createScheduler();
     const workers = await Promise.all([
+      Tesseract.createWorker('eng'),
       Tesseract.createWorker('eng'),
       Tesseract.createWorker('eng'),
       Tesseract.createWorker('eng')
@@ -608,7 +629,7 @@
     return null;
   }
 
-  async function fetchWithTimeout(resource, timeoutMs = 6000) {
+  async function fetchWithTimeout(resource, timeoutMs = 4500) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -629,7 +650,7 @@
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 1.3 });
+      const viewport = page.getViewport({ scale: 1.2 });
 
       canvas.width = viewport.width;
       canvas.height = viewport.height;
@@ -659,15 +680,16 @@
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const driveId = extractDriveId(url);
 
+    // Endpoint lh3 Google Drive juga menghasilkan thumbnail gambar untuk file PDF yang di-share publik!
     const imgUrl = driveId 
-      ? `https://lh3.googleusercontent.com/d/${driveId}=w1000` 
+      ? `https://lh3.googleusercontent.com/d/${driveId}=w900` 
       : url;
 
     try {
       const img = await new Promise((resolve, reject) => {
         const image = new Image();
         image.crossOrigin = 'Anonymous';
-        const timer = setTimeout(() => reject(new Error('Image timeout')), 5000);
+        const timer = setTimeout(() => reject(new Error('Image timeout')), 3500);
         image.onload = () => { clearTimeout(timer); resolve(image); };
         image.onerror = (err) => { clearTimeout(timer); reject(err); };
         image.src = imgUrl;
@@ -684,7 +706,7 @@
 
       let response;
       try {
-        response = await fetchWithTimeout(pdfUrl, 7000);
+        response = await fetchWithTimeout(pdfUrl, 5000);
       } catch (fetchErr) {
         throw new Error('Link timeout / izin Google Drive masih Private');
       }
@@ -698,7 +720,7 @@
       try {
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.3 });
+        const viewport = page.getViewport({ scale: 1.2 });
 
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -710,7 +732,7 @@
     }
   }
 
-  function resizeCanvasForFastCheck(sourceCanvas, maxW = 850) {
+  function resizeCanvasForFastCheck(sourceCanvas, maxW = 750) {
     if (sourceCanvas.width <= maxW) return sourceCanvas;
     const scale = maxW / sourceCanvas.width;
     const temp = document.createElement('canvas');
@@ -722,7 +744,7 @@
   }
 
   function isCanvasBlank(canvas) {
-    const sw = 120, sh = 120;
+    const sw = 100, sh = 100;
     const temp = document.createElement('canvas');
     temp.width = sw;
     temp.height = sh;
@@ -746,16 +768,16 @@
     return Math.sqrt(variance / gray.length) < 10;
   }
 
-  async function verifyWithGitHubAI(canvas, docType, employeeName, token, modelName) {
-    const fastCanvas = resizeCanvasForFastCheck(canvas, 850);
-    const base64Image = fastCanvas.toDataURL('image/jpeg', 0.8);
+  async function verifyWithGitHubAI(canvas, docType, employeeName, token) {
+    const fastCanvas = resizeCanvasForFastCheck(canvas, 750);
+    const base64Image = fastCanvas.toDataURL('image/jpeg', 0.78);
 
     const promptText = `Auditor HRD: Cek gambar untuk kolom "${docType}" milik "${employeeName}".
-Aturan khusus dokumen digital & fisik:
-- Untuk "KTP": terima foto e-KTP fisik MAUPUN tangkapan layar (screenshot) KTP Digital dari aplikasi Identitas Kependudukan Digital (IKD) yang ber-watermark NIK/tanggal.
-- Untuk "KARTU BPJS KETENAGAKERJAAN": terima kartu fisik, file kartu digital JMO (Jamsostek Mobile), MAUPUN screenshot kartu peserta dari aplikasi JMO.
-- Untuk "KARTU BPJS KESEHATAN": terima kartu fisik KIS/BPJS maupun kartu digital/screenshot dari aplikasi Mobile JKN.
-- Tolak HANYA jika: 1) Gambar blank/kosong, 2) Blur/buram parah sehingga nama/nomor tidak terbaca, 3) Foto terlalu jauh/kecil, 4) Dokumen tertukar (bukan ${docType}).
+Aturan khusus:
+- Untuk "KTP": terima foto e-KTP fisik MAUPUN screenshot KTP Digital dari aplikasi Identitas Kependudukan Digital (IKD) yang ber-watermark NIK/tanggal.
+- Untuk "KARTU BPJS KETENAGAKERJAAN": terima kartu fisik, kartu digital JMO, MAUPUN screenshot aplikasi JMO.
+- Untuk "KARTU BPJS KESEHATAN": terima kartu fisik KIS/BPJS maupun kartu digital/screenshot Mobile JKN.
+- Tolak HANYA jika: 1) Blank/kosong, 2) Blur/buram parah, 3) Terlalu jauh/kecil, 4) Dokumen tertukar (bukan ${docType}).
 Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan": "alasan singkat bahasa Indonesia"}`;
 
     const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
@@ -765,9 +787,9 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        model: modelName,
+        model: 'gpt-4o-mini',
         temperature: 0.1,
-        max_tokens: 100,
+        max_tokens: 90,
         messages: [
           {
             role: 'user',
@@ -799,11 +821,11 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
   }
 
   function analyzeImageQualityLocal(canvas) {
-    if (canvas.width < 250 || canvas.height < 160) {
+    if (canvas.width < 240 || canvas.height < 150) {
       return { valid: false, reason: 'Foto terlalu jauh / resolusi terlalu kecil' };
     }
 
-    const scale = Math.min(1, 500 / canvas.width);
+    const scale = Math.min(1, 450 / canvas.width);
     const sw = Math.floor(canvas.width * scale);
     const sh = Math.floor(canvas.height * scale);
 
@@ -834,7 +856,6 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
     const lapMean = lapSum / count;
     const lapVariance = (lapSqSum / count) - (lapMean * lapMean);
 
-    // Threshold 25 agar kartu digital gradasi halus (JMO / IKD) tetap lolos
     if (lapVariance < 25) {
       return { valid: false, reason: 'Foto blur / buram / tidak fokus' };
     }
@@ -843,12 +864,12 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
 
   async function verifyDocumentContentLocal(canvas, docType) {
     const scheduler = await getOcrScheduler();
-    const fastCanvas = resizeCanvasForFastCheck(canvas, 850);
+    const fastCanvas = resizeCanvasForFastCheck(canvas, 750);
     const { data: { text } } = await scheduler.addJob('recognize', fastCanvas);
     const upperText = text.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').trim();
 
     if (upperText.length < 12) {
-      return { valid: false, reason: 'Foto terlalu jauh / teks dokumen tidak terbaca' };
+      return { valid: false, reason: 'Foto terlalu jauh / teks dokumen tidak terbaca', uncertain: true };
     }
 
     const keywords = DOC_KEYWORDS[docType] || [];
@@ -856,7 +877,7 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
 
     const matched = keywords.some(kw => upperText.includes(kw));
     if (!matched) {
-      return { valid: false, reason: `Isi dokumen tidak cocok dengan ${docType} / salah upload` };
+      return { valid: false, reason: `Isi dokumen tidak cocok dengan ${docType} / salah upload`, uncertain: true };
     }
     return { valid: true };
   }
@@ -870,11 +891,11 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
     aiRateLimited = false;
 
     const ghToken = document.getElementById('githubTokenInput').value.trim();
-    const aiModel = document.getElementById('aiModelSelect').value;
-    const concurrency = parseInt(document.getElementById('concurrencySelect').value, 10) || 5;
+    const checkMode = document.getElementById('checkModeSelect').value;
+    const concurrency = parseInt(document.getElementById('concurrencySelect').value, 10) || 8;
 
-    if (!ghToken) {
-      statusText.innerText = 'Menyiapkan 3 worker OCR paralel...';
+    if (checkMode !== 'FULL_AI' || !ghToken) {
+      statusText.innerText = 'Menyiapkan 4 worker OCR paralel...';
       await getOcrScheduler();
     }
 
@@ -948,14 +969,37 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
               recordFailure('Gambar blank / kosong / satu warna polos', matchedLocal ? `File Lokal: ${matchedLocal.name}` : link);
             } else {
               let checkResult;
-              if (ghToken && !aiRateLimited) {
+
+              if (checkMode === 'FULL_AI' && ghToken && !aiRateLimited) {
                 try {
-                  checkResult = await verifyWithGitHubAI(canvas, colName, nama, ghToken, aiModel);
-                } catch (aiErr) {
+                  checkResult = await verifyWithGitHubAI(canvas, colName, nama, ghToken);
+                } catch (e) {
                   const qLocal = analyzeImageQualityLocal(canvas);
                   checkResult = !qLocal.valid ? qLocal : await verifyDocumentContentLocal(canvas, colName);
                 }
+              } else if (checkMode === 'HYBRID') {
+                // 1. Cek cepat lokal dulu
+                const qLocal = analyzeImageQualityLocal(canvas);
+                if (!qLocal.valid) {
+                  checkResult = qLocal;
+                } else {
+                  const ocrRes = await verifyDocumentContentLocal(canvas, colName);
+                  // 2. Jika OCR lokal lolos -> langsung sesuai (tanpa tunggu API AI).
+                  //    Jika OCR lokal ragu/gagal -> konfirmasi ke GitHub AI (jika token ada) agar tidak salah tolak IKD/JMO!
+                  if (ocrRes.valid) {
+                    checkResult = ocrRes;
+                  } else if (ghToken && !aiRateLimited) {
+                    try {
+                      checkResult = await verifyWithGitHubAI(canvas, colName, nama, ghToken);
+                    } catch (e) {
+                      checkResult = ocrRes;
+                    }
+                  } else {
+                    checkResult = ocrRes;
+                  }
+                }
               } else {
+                // FAST_LOCAL
                 const qLocal = analyzeImageQualityLocal(canvas);
                 checkResult = !qLocal.valid ? qLocal : await verifyDocumentContentLocal(canvas, colName);
               }
@@ -975,8 +1019,7 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
         completedSteps++;
         const pct = Math.round((completedSteps / totalSteps) * 100);
         progressFill.style.width = `${pct}%`;
-        const modeLabel = (ghToken && !aiRateLimited) ? `GitHub AI (${aiModel})` : 'OCR Lokal Cepat';
-        statusText.innerText = `[${modeLabel} | ${concurrency}x Paralel] Selesai ${completedSteps}/${totalSteps} dokumen (${pct}%) — Terakhir: ${nama} (${colName})`;
+        statusText.innerText = `[${checkMode} | ${concurrency}x Paralel] Selesai ${completedSteps}/${totalSteps} dokumen (${pct}%) — ${nama} (${colName})`;
       }
     }
 
