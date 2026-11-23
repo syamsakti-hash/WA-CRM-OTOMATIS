@@ -1,770 +1,1133 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WhatsApp Sender & Tracker - Sahabat Sehati</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Validasi Dokumen & Foto Karyawan (Fast Mode)</title>
+  
+  <!-- Library SheetJS untuk baca/tulis Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Library PDF.js untuk merender lampiran PDF menjadi Canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Library Tesseract.js sebagai fallback OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
   <style>
-    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: #f0f2f5; margin: 0; padding: 20px; color: #1f2937; }
-    .container {
-      max-width: 1050px;
-      margin: 10px auto;
-      background: #ffffff;
-      padding: 26px;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    :root {
+      --primary: #1e40af;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #cbd5e1;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --text: #1e293b;
+      --muted: #64748b;
     }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 2px solid #e5e7eb;
-      padding-bottom: 14px;
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1380px;
+      margin: auto;
+      background: var(--card);
+      padding: 28px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 22px;
+      color: var(--primary);
+    }
+    .desc {
+      font-size: 14px;
+      color: #475569;
       margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .ai-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin-bottom: 18px;
+    }
+    .ai-box h3 {
+      margin: 0 0 8px 0;
+      font-size: 15px;
+      color: #1e3a8a;
+    }
+    .ai-row {
+      display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      align-items: center;
     }
-    .header h2 { margin: 0; color: #075E54; font-size: 22px; }
-    .sync-status { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 20px; background: #ecfdf5; color: #047857; }
-    .sync-status.loading { background: #fef3c7; color: #b45309; }
-    .sync-status.error { background: #fee2e2; color: #b91c1c; }
-
-    /* Tabs */
-    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #d1d5db; padding-bottom: 10px; flex-wrap: wrap; }
-    .tab-btn {
-      padding: 10px 18px;
-      border: none;
-      background: #e5e7eb;
-      color: #374151;
-      font-weight: 600;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .tab-btn.active { background: #075E54; color: #ffffff; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
-    /* Form Manual */
-    .manual-box { max-width: 620px; margin: 0 auto; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #374151; }
-    input[type="text"], input[type="tel"], input[type="number"], select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    input:focus, select:focus { outline: none; border-color: #128C7E; box-shadow: 0 0 0 3px rgba(18, 140, 126, 0.15); }
-    input[readonly] { background-color: #f3f4f6; color: #4b5563; cursor: not-allowed; }
-
-    .radio-group { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-    .radio-card {
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      padding: 12px;
-      cursor: pointer;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-    }
-    .radio-card:hover:not(.disabled) { border-color: #128C7E; background-color: #f0fdf4; }
-    .radio-card.active { border-color: #075E54; background-color: #ecfdf5; border-width: 2px; }
-    .radio-card.disabled { opacity: 0.5; cursor: not-allowed; background-color: #f9fafb; }
-    .radio-title { font-weight: 600; font-size: 14px; display: block; }
-    .radio-desc { font-size: 12px; color: #6b7280; margin-top: 2px; display: block; }
-    .warning-text { color: #dc2626; font-size: 12px; margin-top: 5px; display: none; font-weight: 500; }
-    .dup-alert {
-      background-color: #fef3c7;
-      border: 1px solid #f59e0b;
-      color: #92400e;
-      padding: 8px 12px;
+    .ai-row input, .ai-row select {
+      padding: 9px 12px;
+      border: 1px solid #93c5fd;
       border-radius: 6px;
-      font-size: 12px;
-      margin-top: 6px;
-      display: none;
-      font-weight: 600;
-    }
-
-    .preview-box {
-      background-color: #e7ffdb;
-      border: 1px solid #bbf7d0;
-      border-radius: 8px;
-      padding: 14px;
-      margin-top: 18px;
-      font-size: 14px;
-      line-height: 1.5;
-      white-space: pre-wrap;
-    }
-    .preview-label { font-size: 11px; font-weight: 700; color: #075E54; text-transform: uppercase; margin-bottom: 5px; display: block; }
-
-    /* Buttons */
-    .btn-primary {
-      background-color: #25D366;
-      color: white;
-      border: none;
-      padding: 12px 18px;
-      font-size: 15px;
-      font-weight: 700;
-      border-radius: 8px;
-      cursor: pointer;
-      width: 100%;
-      margin-top: 16px;
-    }
-    .btn-primary:hover { background-color: #1ebe5d; }
-    .btn-secondary {
-      background-color: #e5e7eb;
-      color: #374151;
-      border: none;
-      padding: 9px 14px;
       font-size: 13px;
-      font-weight: 600;
-      border-radius: 6px;
-      cursor: pointer;
     }
-    .btn-secondary:hover { background-color: #d1d5db; }
-    .btn-export { background-color: #075E54; color: white; border: none; padding: 9px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
-
-    /* Table */
-    .table-wrapper { overflow-x: auto; margin-top: 16px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; vertical-align: middle; }
-    th { background-color: #075E54; color: white; font-weight: 600; }
-    tr.row-done { background-color: #f0fdf4; }
-    tr.row-syam { background-color: #eff6ff; }
-
-    .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; display: inline-block; }
-    .badge-aktif { background: #dcfce7; color: #166534; }
-    .badge-nonaktif { background: #fef3c7; color: #92400e; }
-    .badge-syam { background: #dbeafe; color: #1e40af; }
-    .badge-warn { background: #fee2e2; color: #991b1b; }
-
-    .btn-sm-wa {
-      background: #25D366;
-      color: white;
-      border: none;
-      padding: 7px 12px;
-      border-radius: 6px;
-      font-weight: 600;
-      cursor: pointer;
+    .ai-row input[type="password"] {
+      flex: 1;
+      min-width: 240px;
+    }
+    .ai-hint {
       font-size: 12px;
-      white-space: nowrap;
+      color: #475569;
+      margin-top: 8px;
     }
-    .btn-sm-wa.syam-mode { background: #2563eb; }
-    .btn-sm-wa.clicked { background: #6b7280; }
-
-    .upload-zone {
-      border: 2px dashed #128C7E;
-      background: #f0fdf4;
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 768px) {
+      .upload-grid { grid-template-columns: 1fr; }
+    }
+    .upload-card {
+      border: 2px dashed var(--border);
       padding: 20px;
       border-radius: 10px;
-      text-align: center;
+      background: #f1f5f9;
     }
-    .stats-bar { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 16px; }
-    .stat-card {
-      flex: 1;
-      min-width: 180px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      padding: 14px;
+    .upload-card h3 {
+      margin: 0 0 8px 0;
+      font-size: 15px;
+      color: var(--primary);
+    }
+    .upload-card p {
+      margin: 0 0 12px 0;
+      font-size: 12.5px;
+      color: #475569;
+    }
+    .file-info {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+    }
+    .action-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 11px 22px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      transition: opacity 0.2s;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.9; }
+    .btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+    .btn-success { background: var(--success); }
+
+    /* Progress & Countdown Timer */
+    .progress-wrapper {
+      margin: 16px 0;
+      display: none;
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .progress-bar {
+      width: 100%;
+      height: 16px;
+      background: #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #1e40af, #3b82f6);
+      transition: width 0.2s;
+    }
+    .progress-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      gap: 8px;
+    }
+    #statusText {
+      font-size: 13px;
+      color: #1e293b;
+      font-weight: 600;
+    }
+    .timer-badges {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .timer-pill {
+      background: #e0e7ff;
+      color: #1e3a8a;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 700;
+    }
+
+    /* Dashboard Report Section */
+    #reportSection {
+      display: none;
+      margin-top: 28px;
+      border-top: 2px solid #e2e8f0;
+      padding-top: 24px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .kpi-card {
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+    .kpi-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .kpi-card .value {
+      font-size: 26px;
+      font-weight: 700;
+      margin-top: 6px;
+      color: var(--text);
+    }
+    .kpi-card.ok { border-left: 5px solid var(--success); }
+    .kpi-card.ok .value { color: var(--success); }
+    .kpi-card.fail { border-left: 5px solid var(--danger); }
+    .kpi-card.fail .value { color: var(--danger); }
+    .kpi-card.info { border-left: 5px solid var(--primary); }
+    .kpi-card.info .value { color: var(--primary); }
+
+    .report-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+    }
+    .tab-btn {
+      padding: 9px 16px;
+      border: 1px solid var(--border);
+      background: #f1f5f9;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      color: #334155;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .filter-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-group input, .filter-group select {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      max-height: 550px;
+      border: 1px solid var(--border);
       border-radius: 8px;
     }
-    .stat-num { font-size: 24px; font-weight: 700; color: #075E54; }
-    .stat-label { font-size: 12px; color: #6b7280; font-weight: 600; }
-    .footer-brand { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 24px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      padding: 9px 11px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #e2e8f0;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+    }
+    tr:hover td { background-color: #f8fafc; }
+    .badge-ok {
+      display: inline-block;
+      background: var(--success-bg);
+      color: var(--success);
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-weight: 700;
+      font-size: 11.5px;
+    }
+    .badge-fail {
+      display: inline-block;
+      background: var(--danger-bg);
+      color: var(--danger);
+      padding: 4px 8px;
+      border-radius: 5px;
+      font-weight: 600;
+      font-size: 11.5px;
+      line-height: 1.4;
+    }
+    .link-btn {
+      color: var(--primary);
+      text-decoration: underline;
+      font-weight: 600;
+    }
+    .watermark {
+      text-align: right;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 24px;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <div class="header">
-    <h2>WhatsApp Sender & Tracker - Sahabat Sehati</h2>
-    <div id="syncBadge" class="sync-status loading">Menghubungkan ke Google Sheets...</div>
-  </div>
+  <h1>Sistem Pengecekan Kualitas & Kesesuaian Dokumen Karyawan (Turbo Mode)</h1>
+  <p class="desc">
+    Menggunakan <b>Parallel Batch Processing</b> (memproses banyak dokumen bersamaan) dan optimasi resolusi agar pengecekan puluhan hingga ratusan karyawan berjalan jauh lebih cepat.
+  </p>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('tabManual', this)">1. Input Manual</button>
-    <button class="tab-btn" onclick="switchTab('tabUpload', this)">2. Upload File Excel</button>
-    <button class="tab-btn" onclick="switchTab('tabRiwayat', this)">3. Riwayat Google Sheets (<span id="countBadge">0</span>)</button>
-  </div>
-
-  <!-- TAB 1: INPUT MANUAL -->
-  <div id="tabManual" class="tab-content active">
-    <div class="manual-box">
-      <div class="form-group">
-        <label for="namaAnggota">Nama Anggota</label>
-        <input type="text" id="namaAnggota" placeholder="Contoh: Budi Santoso" oninput="updateManualPreview()">
-      </div>
-
-      <div class="form-group">
-        <label for="noTelp">Nomor Telepon Anggota</label>
-        <input type="tel" id="noTelp" placeholder="Contoh: 081234567890" oninput="simpanNoManual(); cekDuplikatManual(); updateManualPreview();">
-        <div id="dupAlertManual" class="dup-alert"></div>
-      </div>
-
-      <div class="form-group">
-        <label for="kodeReferral">Kode Referral <span style="font-weight:normal; color:#6b7280;">(Kosongkan jika tidak punya / non-aktif)</span></label>
-        <input type="text" id="kodeReferral" placeholder="Contoh: SHT2600012121" oninput="cekKodeManual()">
-        <div id="warnKode" class="warning-text">* Kode referral kosong: otomatis memilih template Non-Aktif / Eskalasi.</div>
-      </div>
-
-      <div class="form-group" id="groupHariAktif" style="display: none;">
-        <label for="hariAktif">Masa Berlaku (Hari)</label>
-        <input type="number" id="hariAktif" value="30" min="1" oninput="updateManualPreview()">
-      </div>
-
-      <div class="form-group">
-        <label>Pilih Template Pesan</label>
-        <div class="radio-group">
-          <label class="radio-card disabled" id="cardAktif">
-            <input type="radio" name="templateOpt" id="optAktif" value="aktif" disabled onchange="handleManualTemplate()">
-            <div>
-              <span class="radio-title">1. Kode Referral Aktif</span>
-              <span class="radio-desc">Kirim kuota 5 anggota & masa aktif ke anggota.</span>
-            </div>
-          </label>
-
-          <label class="radio-card active" id="cardNonAktif">
-            <input type="radio" name="templateOpt" id="optNonAktif" value="non_aktif" checked onchange="handleManualTemplate()">
-            <div>
-              <span class="radio-title">2. Kode Referral Non-Aktif</span>
-              <span class="radio-desc">Informasikan anggota untuk merekomendasikan calon anggota lewat WA ini.</span>
-            </div>
-          </label>
-
-          <label class="radio-card" id="cardSyam">
-            <input type="radio" name="templateOpt" id="optSyam" value="eskalasi_syam" onchange="handleManualTemplate()">
-            <div>
-              <span class="radio-title">3. Sarankan Jadi Sahabat Sehati (Kirim ke Mas Syam)</span>
-              <span class="radio-desc">Otomatis mengirim ke 085156327726 beserta kode referralnya untuk aktivasi Sahabat Sehati.</span>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      <div class="preview-box">
-        <span class="preview-label">Preview Pesan WhatsApp:</span>
-        <div id="previewText"></div>
-      </div>
-
-      <button type="button" class="btn-primary" onclick="kirimManualWA()">Kirim via WhatsApp & Catat ke Google Sheets</button>
-      <button type="button" class="btn-secondary" style="width:100%; margin-top:8px;" onclick="resetManualForm()">Reset Form</button>
+  <!-- Konfigurasi GitHub AI -->
+  <div class="ai-box">
+    <h3>Integrasi GitHub Models AI & Kecepatan Proses</h3>
+    <div class="ai-row">
+      <input type="password" id="githubTokenInput" placeholder="Tempel GitHub Token (ghp_... / github_pat_...) - Opsional" />
+      <select id="aiModelSelect">
+        <option value="gpt-4o-mini" selected>Model: gpt-4o-mini (Cepat)</option>
+        <option value="gpt-4o">Model: gpt-4o</option>
+      </select>
+      <select id="concurrencySelect" title="Jumlah file diproses bersamaan">
+        <option value="5" selected>Kecepatan: 5 File Paralel (Direkomendasikan)</option>
+        <option value="8">Kecepatan: 8 File Paralel (Super Cepat)</option>
+        <option value="3">Kecepatan: 3 File Paralel (Hemat Bandwidth)</option>
+      </select>
+      <button class="btn" style="padding: 9px 14px; font-size: 13px;" onclick="saveToken()">Simpan Token</button>
+    </div>
+    <div class="ai-hint" id="tokenStatusHint">
+      *Token disimpan lokal di browser Anda. Tanpa token pun sistem otomatis berjalan cepat menggunakan Multi-Worker OCR + Laplacian lokal.
     </div>
   </div>
 
-  <!-- TAB 2: UPLOAD EXCEL -->
-  <div id="tabUpload" class="tab-content">
-    <div class="upload-zone">
-      <p style="margin-top:0; font-weight:600; color:#075E54;">Upload File Excel (.xlsx / .xls / .csv)</p>
-      <p style="font-size:13px; color:#4b5563; margin-bottom:14px;">
-        Gunakan header kolom: <b>nama</b>, <b>nomor</b>, <b>kode</b> (opsional), dan <b>aktif</b> (opsional, default 30 hari).
-      </p>
-      <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv" />
-      <div style="margin-top:12px;">
-        <button type="button" class="btn-secondary" onclick="downloadTemplateExcel()">Download Contoh Format Excel</button>
-      </div>
+  <!-- Area Upload -->
+  <div class="upload-grid">
+    <div class="upload-card">
+      <h3>1. Upload Excel Template (.xlsx / .xls)</h3>
+      <p>Wajib diupload sebagai daftar master karyawan & link dokumen (<code>FORMAT UPLOAD CEK IMAGE.xlsx</code>).</p>
+      <input type="file" id="excelFile" accept=".xlsx, .xls" />
+      <div class="file-info" id="excelFileInfo"></div>
     </div>
 
-    <div id="uploadSummary" style="margin-top:14px; font-weight:600; color:#075E54;"></div>
-
-    <div class="table-wrapper" id="uploadTableWrap" style="display:none;">
-      <table>
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Nama Anggota</th>
-            <th>No. HP Anggota</th>
-            <th>Kode Referral</th>
-            <th>Hari Aktif</th>
-            <th>Pilihan Template</th>
-            <th>Status di Google Sheets</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="uploadTableBody"></tbody>
-      </table>
+    <div class="upload-card">
+      <h3>2. Upload File Dokumen / Foto Lokal (Opsional)</h3>
+      <p>Pilih banyak file sekaligus (PDF/JPEG/PNG). Pengecekan file lokal berjalan instan tanpa perlu download dari internet.</p>
+      <input type="file" id="localDocsInput" accept="image/*,.pdf" multiple />
+      <div class="file-info" id="localDocsInfo"></div>
     </div>
   </div>
 
-  <!-- TAB 3: RIWAYAT GOOGLE SHEETS -->
-  <div id="tabRiwayat" class="tab-content">
-    <div class="stats-bar">
-      <div class="stat-card">
-        <div class="stat-num" id="statTotal">0</div>
-        <div class="stat-label">Total Tercatat di Sheets</div>
+  <div class="action-bar">
+    <button class="btn" id="btnProcess" disabled>Mulai Pengecekan Cepat</button>
+    <button class="btn btn-success" id="btnDownload" disabled>Download Report Excel (.xlsx)</button>
+  </div>
+
+  <!-- Progress Bar + Estimasi Menit Sampai Selesai -->
+  <div class="progress-wrapper" id="progressWrapper">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-meta">
+      <div id="statusText">Menyiapkan engine...</div>
+      <div class="timer-badges">
+        <span class="timer-pill" id="elapsedTimerBadge">Waktu Berjalan: 0 detik</span>
+        <span class="timer-pill" id="etaTimerBadge">Estimasi Selesai: Menghitung...</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-num" id="statAktif" style="color:#16a34a;">0</div>
-        <div class="stat-label">Follow Up Anggota</div>
+    </div>
+  </div>
+
+  <!-- Report Interaktif di Web -->
+  <div id="reportSection">
+    <div class="kpi-grid">
+      <div class="kpi-card info">
+        <div class="label">Total Karyawan</div>
+        <div class="value" id="kpiEmployees">0</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-num" id="statSyam" style="color:#2563eb;">0</div>
-        <div class="stat-label">Disarankan Sahabat Sehati</div>
+      <div class="kpi-card info">
+        <div class="label">Total Dokumen Diperiksa</div>
+        <div class="value" id="kpiTotalDocs">0</div>
+      </div>
+      <div class="kpi-card ok">
+        <div class="label">Dokumen Sesuai</div>
+        <div class="value" id="kpiValidDocs">0</div>
+      </div>
+      <div class="kpi-card fail">
+        <div class="label">Dokumen Tidak Sesuai</div>
+        <div class="value" id="kpiInvalidDocs">0</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="label">Tingkat Kelengkapan</div>
+        <div class="value" id="kpiPassRate">0%</div>
       </div>
     </div>
 
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-      <div style="display:flex; gap:8px; align-items:center;">
-        <label style="margin:0;">Filter Status:</label>
-        <select id="filterStatus" style="width:auto;" onchange="renderRiwayat()">
-          <option value="ALL">Semua Data</option>
-          <option value="FOLLOW_UP">Sudah Di-Follow Up (Anggota)</option>
-          <option value="SAHABAT_SEHATI">Disarankan Sahabat Sehati (Mas Syam)</option>
+    <div class="report-controls">
+      <div class="tabs">
+        <button class="tab-btn active" id="tabMatrixBtn" onclick="switchTab('matrix')">Matriks Per Karyawan</button>
+        <button class="tab-btn" id="tabIssuesBtn" onclick="switchTab('issues')">Rincian Tidak Sesuai (<span id="issueCountBadge">0</span>)</button>
+      </div>
+
+      <div class="filter-group">
+        <input type="text" id="searchInput" placeholder="Cari NIK / Nama karyawan..." oninput="applyFilters()" />
+        <select id="statusFilter" onchange="applyFilters()">
+          <option value="ALL">Semua Status</option>
+          <option value="HAS_ISSUE">Ada Dokumen Tidak Sesuai</option>
+          <option value="ALL_VALID">Semua Dokumen Sesuai</option>
         </select>
       </div>
-      <div style="display:flex; gap:8px;">
-        <button type="button" class="btn-secondary" onclick="fetchLogsFromGoogleSheets()">Refresh Data Sheets</button>
-        <button type="button" class="btn-export" onclick="exportRiwayatExcel()">Download Excel (.xlsx)</button>
-      </div>
     </div>
 
-    <div class="table-wrapper">
-      <table>
+    <!-- Tabel 1: Matriks Per Karyawan -->
+    <div class="table-container" id="matrixView">
+      <table id="matrixTable">
+        <thead id="matrixHead"></thead>
+        <tbody id="matrixBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Tabel 2: Rincian Dokumen Tidak Sesuai -->
+    <div class="table-container" id="issuesView" style="display:none;">
+      <table id="issuesTable">
         <thead>
           <tr>
             <th>No</th>
-            <th>Waktu</th>
-            <th>Nama Anggota</th>
-            <th>No. HP Anggota</th>
-            <th>Kode Referral</th>
-            <th>Kategori Tindakan</th>
-            <th>Tujuan Kirim</th>
+            <th>Nomor Induk Karyawan</th>
+            <th>Nama Lengkap Karyawan</th>
+            <th>Judul Kolom Dokumen</th>
+            <th>Status</th>
+            <th>Alasan Tidak Sesuai</th>
+            <th>Sumber / Link</th>
           </tr>
         </thead>
-        <tbody id="riwayatTableBody"></tbody>
+        <tbody id="issuesBody"></tbody>
       </table>
     </div>
   </div>
 
-  <div class="footer-brand">powered by Asy-Syam Sakti</div>
+  <div class="watermark">powered by Asy-Syam Sakti</div>
 </div>
 
 <script>
-  // ================= KONFIGURASI WAJIB =================
-  // TEMPEL URL WEB APP GOOGLE APPS SCRIPT ANDA DI BAWAH INI:
-  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNt-mR7siv2LYNdY9hzIBrZ4jA_8LlyMcH1qgZ-uaajV0bBlgFYlD0YXyF3GOa0iZN/exec";
-  // =====================================================
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-  const NO_MAS_SYAM = "085156327726";
-  let savedMemberPhone = "";
-  let uploadedRows = [];
-  let cachedLogs = [];
+  const DOC_COLUMNS = [
+    'KTP',
+    'KARTU KELUARGA',
+    'IJAZAH',
+    'TRANSKIP NILAI',
+    'KARTU BPJS KETENAGAKERJAAN',
+    'KARTU BPJS KESEHATAN',
+    'NPWP',
+    'STR',
+    'SIP',
+    'Sertifikat Pendukung'
+  ];
 
-  // ==================== KONEKSI GOOGLE SHEETS ====================
-  function setSyncBadge(state, text) {
-    const el = document.getElementById("syncBadge");
-    el.className = "sync-status " + state;
-    el.innerText = text;
-  }
+  const DOC_FILENAME_ALIASES = {
+    'KTP': ['KTP'],
+    'KARTU KELUARGA': ['KARTU KELUARGA', 'KK'],
+    'IJAZAH': ['IJAZAH'],
+    'TRANSKIP NILAI': ['TRANSKRIP', 'TRANSKIP'],
+    'KARTU BPJS KETENAGAKERJAAN': ['BPJS TK', 'KETENAGAKERJAAN', 'BPJSTK'],
+    'KARTU BPJS KESEHATAN': ['BPJS KES', 'KESEHATAN', 'KIS', 'BPJSKES'],
+    'NPWP': ['NPWP'],
+    'STR': ['STR'],
+    'SIP': ['SIP'],
+    'Sertifikat Pendukung': ['SERTIFIKAT', 'CERTIFICATE']
+  };
 
-  async function fetchLogsFromGoogleSheets() {
-    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("TEMPEL_URL")) {
-      setSyncBadge("error", "URL Google Apps Script belum dipasang");
-      return;
+  const DOC_KEYWORDS = {
+    'KTP': ['PROVINSI', 'NIK', 'NAMA', 'LAHIR', 'ALAMAT', 'KEL', 'KECAMATAN', 'AGAMA', 'PERKAWINAN', 'PEKERJAAN', 'KEWARGANEGARAAN'],
+    'KARTU KELUARGA': ['KARTU KELUARGA', 'KEPALA KELUARGA', 'NIK', 'NAMA LENGKAP', 'SUSUNAN', 'HUBUNGAN', 'DESA', 'KECAMATAN'],
+    'IJAZAH': ['IJAZAH', 'UNIVERSITAS', 'MEMBERIKAN', 'SARJANA', 'FAKULTAS', 'PROGRAM STUDI', 'REKTOR', 'DEKAN', 'KELULUSAN'],
+    'TRANSKIP NILAI': ['TRANSKRIP', 'AKADEMIK', 'MATA KULIAH', 'SKS', 'INDEKS PRESTASI', 'KUMULATIF', 'UNIVERSITAS', 'NIM', 'NOMOR POKOK'],
+    'KARTU BPJS KETENAGAKERJAAN': ['BPJS', 'KETENAGAKERJAAN', 'KARTU PESERTA', 'PESERTA'],
+    'KARTU BPJS KESEHATAN': ['KARTU INDONESIA SEHAT', 'BPJS', 'KESEHATAN', 'NOMOR KARTU', 'FASKES', 'NIK'],
+    'NPWP': ['NPWP', 'PAJAK', 'DIREKTORAT JENDERAL', 'KEMENTERIAN KEUANGAN', 'WAJIB PAJAK'],
+    'STR': ['SURAT TANDA REGISTRASI', 'KONSIL', 'TENAGA KESEHATAN', 'REGISTRASI'],
+    'SIP': ['SURAT IZIN PRAKTIK', 'DINAS KESEHATAN', 'PRAKTIK', 'IZIN'],
+    'Sertifikat Pendukung': ['SERTIFIKAT', 'CERTIFICATE', 'PELATIHAN', 'KOMPETENSI', 'DIBERIKAN KEPADA']
+  };
+
+  let rawRows = [];
+  let localFiles = [];
+  let finalResults = [];
+  let detailIssues = [];
+  let ocrScheduler = null;
+  let timerInterval = null;
+  let aiRateLimited = false;
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('gh_models_pat');
+    if (saved) {
+      document.getElementById('githubTokenInput').value = saved;
+      document.getElementById('tokenStatusHint').innerHTML = '<span style="color:#16a34a; font-weight:600;">✔ Token GitHub AI aktif dari penyimpanan browser.</span>';
     }
+  });
 
-    setSyncBadge("loading", "Menyinkronkan data Google Sheets...");
-    try {
-      const res = await fetch(GOOGLE_SCRIPT_URL);
-      const json = await res.json();
-      if (json.status === "success") {
-        cachedLogs = json.data || [];
-        updateStats();
-        renderRiwayat();
-        cekDuplikatManual();
-        if (uploadedRows.length > 0) renderUploadTable();
-        setSyncBadge("", "Terhubung ke Google Sheets ✓");
-      } else {
-        setSyncBadge("error", "Gagal membaca data Sheets");
-      }
-    } catch (err) {
-      console.error(err);
-      setSyncBadge("error", "Koneksi ke Google Sheets terputus");
-    }
-  }
-
-  async function sendLogToGoogleSheets(entry) {
-    // Tambahkan langsung ke cache lokal agar UI langsung responsif
-    cachedLogs.unshift(entry);
-    updateStats();
-    renderRiwayat();
-
-    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("TEMPEL_URL")) return;
-
-    setSyncBadge("loading", "Menyimpan ke Google Sheets...");
-    try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors", // Menghindari blokir CORS saat POST ke Apps Script
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry)
-      });
-      setSyncBadge("", "Tersimpan di Google Sheets ✓");
-    } catch (err) {
-      console.error(err);
-      setSyncBadge("error", "Gagal menyimpan ke Google Sheets");
-    }
-  }
-
-  // ==================== NAVIGASI TAB ====================
-  function switchTab(tabId, btn) {
-    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
-    document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
-    document.getElementById(tabId).classList.add("active");
-    btn.classList.add("active");
-    if (tabId === "tabRiwayat") renderRiwayat();
-  }
-
-  // ==================== HELPER FORMAT & MESSAGE ====================
-  function formatNomorWA(raw) {
-    let num = String(raw || "").replace(/[^0-9]/g, "");
-    if (num.startsWith("0")) num = "62" + num.slice(1);
-    return num;
-  }
-
-  function buildMessage(type, nama, kode, aktif) {
-    const n = nama || "{NAMA}";
-    const k = kode || "{KODE}";
-    const a = aktif || "30";
-    if (type === "aktif") {
-      return `Dear Bpk/Ibu ${n}, kode referral Anda ${k} berlaku untuk 5 anggota selama ${a} hari sejak pesan ini diterima. Terima kasih.`;
-    } else if (type === "non_aktif") {
-      return `Dear Bpk/Ibu ${n} jika ada calon anggota yang akan direkomendasikan bisa langsung menghubungi kami di wa ini, dan akan langsung kami follow up ke cabang terdekat.`;
+  function saveToken() {
+    const val = document.getElementById('githubTokenInput').value.trim();
+    if (val) {
+      localStorage.setItem('gh_models_pat', val);
+      document.getElementById('tokenStatusHint').innerHTML = '<span style="color:#16a34a; font-weight:600;">✔ Token berhasil disimpan!</span>';
     } else {
-      const kSyam = kode || "-";
-      return `Dear mas syam tolong dibantu atas ${n} dengan kode referral ${kSyam} ini kode referralnya sudah tidak aktif dan minta untuk di jadikan sebagai sahabat sehati`;
+      localStorage.removeItem('gh_models_pat');
+      document.getElementById('tokenStatusHint').innerText = 'Token dihapus. Sistem memakai Multi-Worker OCR lokal.';
     }
   }
 
-  function cekSudahFollowUp(noHp) {
-    const cleanTarget = formatNomorWA(noHp);
-    if (!cleanTarget || cleanTarget === formatNomorWA(NO_MAS_SYAM)) return null;
-    return cachedLogs.find(item => formatNomorWA(item.noAnggota) === cleanTarget) || null;
+  function formatDuration(totalSeconds) {
+    if (!isFinite(totalSeconds) || totalSeconds < 0) return 'Menghitung...';
+    const secs = Math.round(totalSeconds);
+    const mins = Math.floor(secs / 60);
+    const remSecs = secs % 60;
+    return mins > 0 ? `${mins} menit ${remSecs} detik` : `${remSecs} detik`;
   }
 
-  function updateStats() {
-    const syamCount = cachedLogs.filter(l => l.tipe === "eskalasi_syam").length;
-    const memberCount = cachedLogs.length - syamCount;
-
-    document.getElementById("countBadge").innerText = cachedLogs.length;
-    document.getElementById("statTotal").innerText = cachedLogs.length;
-    document.getElementById("statAktif").innerText = memberCount;
-    document.getElementById("statSyam").innerText = syamCount;
+  // Inisialisasi Pool OCR Worker (3 worker paralel bahasa 'eng' agar download & OCR 4x lebih cepat)
+  async function getOcrScheduler() {
+    if (ocrScheduler) return ocrScheduler;
+    const scheduler = Tesseract.createScheduler();
+    const workers = await Promise.all([
+      Tesseract.createWorker('eng'),
+      Tesseract.createWorker('eng'),
+      Tesseract.createWorker('eng')
+    ]);
+    workers.forEach(w => scheduler.addWorker(w));
+    ocrScheduler = scheduler;
+    return ocrScheduler;
   }
 
-  // ==================== LOGIKA TAB 1: INPUT MANUAL ====================
-  function simpanNoManual() {
-    const selected = document.querySelector('input[name="templateOpt"]:checked').value;
-    if (selected !== "eskalasi_syam") {
-      savedMemberPhone = document.getElementById("noTelp").value;
-    }
-  }
+  const excelFileInput = document.getElementById('excelFile');
+  const localDocsInput = document.getElementById('localDocsInput');
+  const btnProcess = document.getElementById('btnProcess');
+  const btnDownload = document.getElementById('btnDownload');
+  const progressWrapper = document.getElementById('progressWrapper');
+  const progressFill = document.getElementById('progressFill');
+  const statusText = document.getElementById('statusText');
 
-  function cekDuplikatManual() {
-    const raw = document.getElementById("noTelp").value;
-    const alertBox = document.getElementById("dupAlertManual");
-    const existing = cekSudahFollowUp(raw);
-    if (existing) {
-      alertBox.style.display = "block";
-      alertBox.innerText = `⚠️ Nomor ini sudah tercatat di Google Sheets (${existing.kategoriLabel}) pada ${existing.waktu}.`;
-    } else {
-      alertBox.style.display = "none";
-    }
-  }
-
-  function cekKodeManual() {
-    const kode = document.getElementById("kodeReferral").value.trim();
-    const optAktif = document.getElementById("optAktif");
-    const optNonAktif = document.getElementById("optNonAktif");
-    const cardAktif = document.getElementById("cardAktif");
-    const warnKode = document.getElementById("warnKode");
-
-    if (kode === "") {
-      optAktif.disabled = true;
-      cardAktif.classList.add("disabled");
-      warnKode.style.display = "block";
-      if (optAktif.checked) optNonAktif.checked = true;
-    } else {
-      optAktif.disabled = false;
-      cardAktif.classList.remove("disabled");
-      warnKode.style.display = "none";
-    }
-    handleManualTemplate();
-  }
-
-  function handleManualTemplate() {
-    const selected = document.querySelector('input[name="templateOpt"]:checked').value;
-    const noTelpInput = document.getElementById("noTelp");
-    const groupHariAktif = document.getElementById("groupHariAktif");
-
-    document.getElementById("cardAktif").classList.toggle("active", selected === "aktif");
-    document.getElementById("cardNonAktif").classList.toggle("active", selected === "non_aktif");
-    document.getElementById("cardSyam").classList.toggle("active", selected === "eskalasi_syam");
-
-    groupHariAktif.style.display = (selected === "aktif") ? "block" : "none";
-
-    if (selected === "eskalasi_syam") {
-      noTelpInput.value = NO_MAS_SYAM;
-      noTelpInput.readOnly = true;
-    } else {
-      if (noTelpInput.readOnly) {
-        noTelpInput.value = savedMemberPhone;
-        noTelpInput.readOnly = false;
-      }
-    }
-    updateManualPreview();
-  }
-
-  function updateManualPreview() {
-    const nama = document.getElementById("namaAnggota").value.trim();
-    const kode = document.getElementById("kodeReferral").value.trim();
-    const aktif = document.getElementById("hariAktif").value.trim();
-    const selected = document.querySelector('input[name="templateOpt"]:checked').value;
-    document.getElementById("previewText").innerText = buildMessage(selected, nama, kode, aktif);
-  }
-
-  function kirimManualWA() {
-    const nama = document.getElementById("namaAnggota").value.trim();
-    const rawPhone = document.getElementById("noTelp").value.trim();
-    const kode = document.getElementById("kodeReferral").value.trim();
-    const aktif = document.getElementById("hariAktif").value.trim() || "30";
-    const selected = document.querySelector('input[name="templateOpt"]:checked').value;
-
-    if (!nama) return alert("Harap isi Nama Anggota.");
-    if (!rawPhone) return alert("Harap isi Nomor Telepon.");
-    if (selected === "aktif" && !kode) return alert("Kode Referral wajib diisi untuk template Aktif.");
-
-    const targetPhone = (selected === "eskalasi_syam") ? NO_MAS_SYAM : rawPhone;
-    const memberPhoneRecord = (selected === "eskalasi_syam") ? (savedMemberPhone || "-") : rawPhone;
-    const pesan = buildMessage(selected, nama, kode, aktif);
-
-    const entry = {
-      waktu: new Date().toLocaleString("id-ID"),
-      nama: nama,
-      noAnggota: memberPhoneRecord,
-      kode: kode || "-",
-      tipe: selected,
-      kategoriLabel: selected === "eskalasi_syam"
-        ? "Disarankan Sahabat Sehati (Mas Syam)"
-        : (selected === "aktif" ? "Follow Up - Referral Aktif" : "Follow Up - Referral Non-Aktif"),
-      tujuanWA: targetPhone
-    };
-
-    sendLogToGoogleSheets(entry);
-    cekDuplikatManual();
-
-    const waUrl = `https://wa.me/${formatNomorWA(targetPhone)}?text=${encodeURIComponent(pesan)}`;
-    window.open(waUrl, "_blank");
-  }
-
-  function resetManualForm() {
-    document.getElementById("namaAnggota").value = "";
-    document.getElementById("noTelp").value = "";
-    document.getElementById("noTelp").readOnly = false;
-    document.getElementById("kodeReferral").value = "";
-    document.getElementById("hariAktif").value = "30";
-    document.getElementById("dupAlertManual").style.display = "none";
-    savedMemberPhone = "";
-    document.getElementById("optNonAktif").checked = true;
-    cekKodeManual();
-  }
-
-  // ==================== LOGIKA TAB 2: UPLOAD EXCEL ====================
-  function downloadTemplateExcel() {
-    const sampleData = [
-      { nama: "Budi Santoso", nomor: "081234567890", kode: "SHT2600012121", aktif: 30 },
-      { nama: "Siti Aminah", nomor: "085678912345", kode: "", aktif: "" }
-    ];
-    const ws = XLSX.utils.json_to_sheet(sampleData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Data_Anggota");
-    XLSX.writeFile(wb, "Template_FollowUp_SahabatSehati.xlsx");
-  }
-
-  document.getElementById("fileExcel").addEventListener("change", function(e) {
+  excelFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(evt) {
-      const wb = XLSX.read(evt.target.result, { type: "binary" });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rawJson = XLSX.utils.sheet_to_json(sheet);
-
-      uploadedRows = rawJson.map((row, idx) => {
-        const nama = String(row.nama || row.Nama || row.NAMA || row["Nama Anggota"] || "").trim();
-        const nomor = String(row.nomor || row.Nomor || row.NOMOR || row["No Telp"] || row["No HP"] || "").trim();
-        const kode = String(row.kode || row.Kode || row.KODE || row["Kode Referral"] || "").trim();
-        const aktif = String(row.aktif || row.Aktif || row.AKTIF || "30").trim() || "30";
-        const defaultTemplate = kode !== "" ? "aktif" : "non_aktif";
-        return { idx, nama, nomor, kode, aktif, template: defaultTemplate, sent: false };
-      }).filter(r => r.nama !== "" || r.nomor !== "");
-
-      renderUploadTable();
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      rawRows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+      
+      if (rawRows.length > 0) {
+        btnProcess.disabled = false;
+        document.getElementById('excelFileInfo').innerText = `✔ ${file.name} (${rawRows.length} karyawan dimuat)`;
+      }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   });
 
-  function renderUploadTable() {
-    const tbody = document.getElementById("uploadTableBody");
-    const wrap = document.getElementById("uploadTableWrap");
-    const summary = document.getElementById("uploadSummary");
+  localDocsInput.addEventListener('change', (e) => {
+    localFiles = Array.from(e.target.files || []);
+    document.getElementById('localDocsInfo').innerText = localFiles.length > 0 
+      ? `✔ ${localFiles.length} file lokal siap dicocokkan` 
+      : '';
+  });
 
-    tbody.innerHTML = "";
-    if (uploadedRows.length === 0) {
-      wrap.style.display = "none";
-      summary.innerText = "Tidak ada data valid ditemukan di file Excel.";
-      return;
+  function findMatchingLocalFile(employeeName, docCol) {
+    if (localFiles.length === 0 || !employeeName) return null;
+    const upperEmp = employeeName.toUpperCase().trim();
+    const firstName = upperEmp.split(/\s+/)[0];
+    const aliases = DOC_FILENAME_ALIASES[docCol] || [docCol.toUpperCase()];
+
+    return localFiles.find(f => {
+      const fname = f.name.toUpperCase();
+      const nameMatch = fname.includes(upperEmp) || (firstName.length >= 3 && fname.includes(firstName));
+      const docMatch = aliases.some(alias => fname.includes(alias));
+      return nameMatch && docMatch;
+    }) || null;
+  }
+
+  function extractDriveId(url) {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    const match1 = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match1) return match1[1];
+    const match2 = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (match2) return match2[1];
+    return null;
+  }
+
+  // Fetch dengan batas waktu (Timeout 6 detik) agar tidak macet di link rusak
+  async function fetchWithTimeout(resource, timeoutMs = 6000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(resource, { signal: controller.signal });
+      clearTimeout(id);
+      return response;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  }
+
+  // Membuat Canvas terpisah per task (aman untuk proses paralel!)
+  async function loadLocalFileToNewCanvas(file) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdf.getPage(1);
+      // Scale 1.3 sudah sangat tajam untuk OCR dan jauh lebih cepat dari 2.0
+      const viewport = page.getViewport({ scale: 1.3 });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      return canvas;
+    } else {
+      const objectUrl = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = reject;
+          image.src = objectUrl;
+        });
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        ctx.drawImage(img, 0, 0);
+        return canvas;
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+  }
+
+  async function loadUrlToNewCanvas(url) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const driveId = extractDriveId(url);
+
+    // Gunakan resolusi w1000 agar download 3x lebih cepat namun teks tetap terbaca jelas
+    const imgUrl = driveId 
+      ? `https://lh3.googleusercontent.com/d/${driveId}=w1000` 
+      : url;
+
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.crossOrigin = 'Anonymous';
+        const timer = setTimeout(() => reject(new Error('Image timeout')), 5000);
+        image.onload = () => { clearTimeout(timer); resolve(image); };
+        image.onerror = (err) => { clearTimeout(timer); reject(err); };
+        image.src = imgUrl;
+      });
+
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      ctx.drawImage(img, 0, 0);
+      return canvas;
+    } catch (e) {
+      const pdfUrl = driveId
+        ? `https://corsproxy.io/?${encodeURIComponent(`https://drive.google.com/uc?export=download&id=${driveId}`)}`
+        : url;
+
+      let response;
+      try {
+        response = await fetchWithTimeout(pdfUrl, 7000);
+      } catch (fetchErr) {
+        throw new Error('Link timeout / izin Google Drive masih Private');
+      }
+
+      if (!response.ok) {
+        throw new Error(`File gagal diunduh (HTTP ${response.status})`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+
+      try {
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.3 });
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+        return canvas;
+      } catch (pdfErr) {
+        throw new Error('Format file rusak / bukan gambar maupun PDF valid');
+      }
+    }
+  }
+
+  // Resize canvas ke max lebar 850px untuk mempercepat OCR & AI
+  function resizeCanvasForFastCheck(sourceCanvas, maxW = 850) {
+    if (sourceCanvas.width <= maxW) return sourceCanvas;
+    const scale = maxW / sourceCanvas.width;
+    const temp = document.createElement('canvas');
+    temp.width = Math.round(sourceCanvas.width * scale);
+    temp.height = Math.round(sourceCanvas.height * scale);
+    const ctx = temp.getContext('2d');
+    ctx.drawImage(sourceCanvas, 0, 0, temp.width, temp.height);
+    return temp;
+  }
+
+  function isCanvasBlank(canvas) {
+    const sw = 120, sh = 120;
+    const temp = document.createElement('canvas');
+    temp.width = sw;
+    temp.height = sh;
+    const ctx = temp.getContext('2d');
+    ctx.drawImage(canvas, 0, 0, sw, sh);
+    const data = ctx.getImageData(0, 0, sw, sh).data;
+
+    let sum = 0;
+    const gray = new Float32Array(sw * sh);
+    for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      gray[j] = lum;
+      sum += lum;
+    }
+    const mean = sum / gray.length;
+    let variance = 0;
+    for (let i = 0; i < gray.length; i++) {
+      const d = gray[i] - mean;
+      variance += d * d;
+    }
+    return Math.sqrt(variance / gray.length) < 10;
+  }
+
+  async function verifyWithGitHubAI(canvas, docType, employeeName, token, modelName) {
+    const fastCanvas = resizeCanvasForFastCheck(canvas, 850);
+    const base64Image = fastCanvas.toDataURL('image/jpeg', 0.8);
+
+    const promptText = `Auditor HRD: Cek gambar untuk kolom "${docType}" milik "${employeeName}".
+Tolak jika: 1) Blank/kosong, 2) Blur/buram parah, 3) Terlalu jauh/kecil sehingga teks tak terbaca, 4) Dokumen tertukar (bukan ${docType}).
+Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan": "alasan singkat bahasa Indonesia"}`;
+
+    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        model: modelName,
+        temperature: 0.1,
+        max_tokens: 100,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: promptText },
+              { type: 'image_url', image_url: { url: base64Image } }
+            ]
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 429 || response.status === 401) {
+        aiRateLimited = true;
+      }
+      throw new Error(`HTTP_${response.status}`);
     }
 
-    wrap.style.display = "block";
-    summary.innerText = `Berhasil memuat ${uploadedRows.length} data anggota. Silakan pilih tindakan dan klik Kirim.`;
+    const result = await response.json();
+    const rawContent = result.choices?.[0]?.message?.content || '';
+    const cleaned = rawContent.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
 
-    uploadedRows.forEach((item, index) => {
-      const existingLog = cekSudahFollowUp(item.nomor);
-      const hasKode = item.kode !== "";
-      const isSyam = item.template === "eskalasi_syam";
-
-      const tr = document.createElement("tr");
-      if (item.sent) tr.classList.add(isSyam ? "row-syam" : "row-done");
-
-      tr.innerHTML = `
-        <td>${index + 1}</td>
-        <td><strong>${item.nama}</strong></td>
-        <td>${item.nomor}</td>
-        <td>${hasKode ? `<span class="badge badge-aktif">${item.kode}</span>` : `<span class="badge badge-warn">Kosong</span>`}</td>
-        <td>
-          <input type="number" value="${item.aktif}" min="1" style="width:65px; padding:5px;"
-            ${item.template !== "aktif" ? "disabled" : ""}
-            onchange="ubahHariRow(${index}, this.value)">
-        </td>
-        <td>
-          <select onchange="ubahTemplateRow(${index}, this.value)">
-            <option value="aktif" ${item.template === "aktif" ? "selected" : ""} ${!hasKode ? "disabled" : ""}>1. Referral Aktif</option>
-            <option value="non_aktif" ${item.template === "non_aktif" ? "selected" : ""}>2. Referral Non-Aktif</option>
-            <option value="eskalasi_syam" ${item.template === "eskalasi_syam" ? "selected" : ""}>3. Sarankan Sahabat Sehati (Mas Syam)</option>
-          </select>
-        </td>
-        <td>
-          ${existingLog
-            ? `<span class="badge badge-syam" title="${existingLog.waktu}">${existingLog.kategoriLabel}</span>`
-            : `<span style="color:#6b7280; font-size:12px;">Belum Follow Up</span>`}
-        </td>
-        <td>
-          <button type="button" class="btn-sm-wa ${isSyam ? "syam-mode" : ""} ${item.sent ? "clicked" : ""}"
-            onclick="kirimRowWA(${index})">
-            ${item.sent ? "Terkirim ✓" : (isSyam ? "Ajukan ke Mas Syam" : "Kirim WA Anggota")}
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
+    return {
+      valid: Boolean(parsed.sesuai),
+      reason: parsed.alasan || 'Dokumen tidak memenuhi standar kualitas'
+    };
   }
 
-  function ubahTemplateRow(index, val) {
-    if (val === "aktif" && uploadedRows[index].kode === "") {
-      alert("Kode referral kosong, tidak bisa memilih template Aktif.");
-      renderUploadTable();
-      return;
+  function analyzeImageQualityLocal(canvas) {
+    if (canvas.width < 280 || canvas.height < 180) {
+      return { valid: false, reason: 'Foto terlalu jauh / resolusi terlalu kecil' };
     }
-    uploadedRows[index].template = val;
-    renderUploadTable();
+
+    const scale = Math.min(1, 500 / canvas.width);
+    const sw = Math.floor(canvas.width * scale);
+    const sh = Math.floor(canvas.height * scale);
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = sw;
+    tempCanvas.height = sh;
+    const tCtx = tempCanvas.getContext('2d');
+    tCtx.drawImage(canvas, 0, 0, sw, sh);
+
+    const imgData = tCtx.getImageData(0, 0, sw, sh).data;
+    const gray = new Float32Array(sw * sh);
+
+    for (let i = 0, j = 0; i < imgData.length; i += 4, j++) {
+      gray[j] = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
+    }
+
+    let lapSum = 0, lapSqSum = 0, count = 0;
+    for (let y = 1; y < sh - 1; y++) {
+      for (let x = 1; x < sw - 1; x++) {
+        const idx = y * sw + x;
+        const lap = gray[idx - sw] + gray[idx - 1] + gray[idx + 1] + gray[idx + sw] - 4 * gray[idx];
+        lapSum += lap;
+        lapSqSum += lap * lap;
+        count++;
+      }
+    }
+
+    const lapMean = lapSum / count;
+    const lapVariance = (lapSqSum / count) - (lapMean * lapMean);
+
+    if (lapVariance < 60) {
+      return { valid: false, reason: 'Foto blur / buram / tidak fokus' };
+    }
+    return { valid: true };
   }
 
-  function ubahHariRow(index, val) {
-    uploadedRows[index].aktif = val || "30";
+  async function verifyDocumentContentLocal(canvas, docType) {
+    const scheduler = await getOcrScheduler();
+    const fastCanvas = resizeCanvasForFastCheck(canvas, 850);
+    const { data: { text } } = await scheduler.addJob('recognize', fastCanvas);
+    const upperText = text.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').trim();
+
+    if (upperText.length < 15) {
+      return { valid: false, reason: 'Foto terlalu jauh / teks dokumen tidak terbaca' };
+    }
+
+    const keywords = DOC_KEYWORDS[docType] || [];
+    if (keywords.length === 0) return { valid: true };
+
+    const matched = keywords.some(kw => upperText.includes(kw));
+    if (!matched) {
+      return { valid: false, reason: `Isi dokumen tidak cocok dengan ${docType} / salah upload` };
+    }
+    return { valid: true };
   }
 
-  function kirimRowWA(index) {
-    const item = uploadedRows[index];
-    if (!item.nama) return alert("Nama anggota pada baris ini kosong.");
+  btnProcess.addEventListener('click', async () => {
+    btnProcess.disabled = true;
+    btnDownload.disabled = true;
+    progressWrapper.style.display = 'block';
+    finalResults = [];
+    detailIssues = [];
+    aiRateLimited = false;
 
-    const isSyam = item.template === "eskalasi_syam";
-    const targetPhone = isSyam ? NO_MAS_SYAM : item.nomor;
-    if (!targetPhone) return alert("Nomor telepon tujuan kosong.");
+    const ghToken = document.getElementById('githubTokenInput').value.trim();
+    const aiModel = document.getElementById('aiModelSelect').value;
+    const concurrency = parseInt(document.getElementById('concurrencySelect').value, 10) || 5;
 
-    const pesan = buildMessage(item.template, item.nama, item.kode, item.aktif);
+    // Pre-load OCR scheduler di awal jika tidak pakai token AI
+    if (!ghToken) {
+      statusText.innerText = 'Menyiapkan 3 worker OCR paralel...';
+      await getOcrScheduler();
+    }
 
-    sendLogToGoogleSheets({
-      waktu: new Date().toLocaleString("id-ID"),
-      nama: item.nama,
-      noAnggota: item.nomor || "-",
-      kode: item.kode || "-",
-      tipe: item.template,
-      kategoriLabel: isSyam
-        ? "Disarankan Sahabat Sehati (Mas Syam)"
-        : (item.template === "aktif" ? "Follow Up - Referral Aktif" : "Follow Up - Referral Non-Aktif"),
-      tujuanWA: targetPhone
+    // Siapkan struktur hasil per karyawan terlebih dahulu
+    finalResults = rawRows.map(row => ({
+      'Nomor Induk Karyawan': String(row['Nomor Induk Karyawan'] || '').trim(),
+      'Nama Lengkap Karyawan': String(row['Nama Lengkap Karyawan'] || '').trim()
+    }));
+
+    // Buat daftar seluruh antrean tugas (Task Queue)
+    const tasks = [];
+    rawRows.forEach((row, rIdx) => {
+      const nik = finalResults[rIdx]['Nomor Induk Karyawan'];
+      const nama = finalResults[rIdx]['Nama Lengkap Karyawan'];
+      for (const colName of DOC_COLUMNS) {
+        tasks.push({
+          rIdx,
+          nik,
+          nama,
+          colName,
+          link: String(row[colName] || '').trim()
+        });
+      }
     });
 
-    uploadedRows[index].sent = true;
-    renderUploadTable();
+    const totalSteps = tasks.length;
+    let completedSteps = 0;
+    let validCount = 0;
+    let taskCursor = 0;
 
-    const waUrl = `https://wa.me/${formatNomorWA(targetPhone)}?text=${encodeURIComponent(pesan)}`;
-    window.open(waUrl, "_blank");
+    // Timer Real-Time
+    const startTime = Date.now();
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      const elapsedSec = (Date.now() - startTime) / 1000;
+      document.getElementById('elapsedTimerBadge').innerText = `Waktu Berjalan: ${formatDuration(elapsedSec)}`;
+
+      if (completedSteps > 0 && completedSteps < totalSteps) {
+        const avgSecPerStep = elapsedSec / completedSteps;
+        const remainingSec = avgSecPerStep * (totalSteps - completedSteps);
+        document.getElementById('etaTimerBadge').innerText = `Estimasi Selesai: ${formatDuration(remainingSec)}`;
+      }
+    }, 500);
+
+    // Worker function yang mengambil tugas secara paralel
+    async function runWorker() {
+      while (taskCursor < tasks.length) {
+        const currentIndex = taskCursor++;
+        const task = tasks[currentIndex];
+        const { rIdx, nik, nama, colName, link } = task;
+
+        const matchedLocal = findMatchingLocalFile(nama, colName);
+
+        const recordFailure = (reasonText, sourceLabel) => {
+          finalResults[rIdx][colName] = `file tidak sesuai (${reasonText})`;
+          detailIssues.push({
+            'Nomor Induk Karyawan': nik,
+            'Nama Lengkap Karyawan': nama,
+            'Judul Kolom Dokumen': colName,
+            'Status': 'file tidak sesuai',
+            'Alasan Tidak Sesuai': reasonText,
+            'Link Dokumen': sourceLabel
+          });
+        };
+
+        if (!matchedLocal && (!link || !link.startsWith('http'))) {
+          recordFailure('Link kosong atau format URL tidak valid', link || '(Kosong)');
+        } else {
+          try {
+            const canvas = matchedLocal 
+              ? await loadLocalFileToNewCanvas(matchedLocal)
+              : await loadUrlToNewCanvas(link);
+
+            if (isCanvasBlank(canvas)) {
+              recordFailure('Gambar blank / kosong / satu warna polos', matchedLocal ? `File Lokal: ${matchedLocal.name}` : link);
+            } else {
+              let checkResult;
+              if (ghToken && !aiRateLimited) {
+                try {
+                  checkResult = await verifyWithGitHubAI(canvas, colName, nama, ghToken, aiModel);
+                } catch (aiErr) {
+                  const qLocal = analyzeImageQualityLocal(canvas);
+                  checkResult = !qLocal.valid ? qLocal : await verifyDocumentContentLocal(canvas, colName);
+                }
+              } else {
+                const qLocal = analyzeImageQualityLocal(canvas);
+                checkResult = !qLocal.valid ? qLocal : await verifyDocumentContentLocal(canvas, colName);
+              }
+
+              if (!checkResult.valid) {
+                recordFailure(checkResult.reason, matchedLocal ? `File Lokal: ${matchedLocal.name}` : link);
+              } else {
+                finalResults[rIdx][colName] = 'sesuai';
+                validCount++;
+              }
+            }
+          } catch (err) {
+            recordFailure(err.message || 'File gagal diakses / link rusak', matchedLocal ? `File Lokal: ${matchedLocal.name}` : link);
+          }
+        }
+
+        completedSteps++;
+        const pct = Math.round((completedSteps / totalSteps) * 100);
+        progressFill.style.width = `${pct}%`;
+        const modeLabel = (ghToken && !aiRateLimited) ? `GitHub AI (${aiModel})` : 'OCR Lokal Cepat';
+        statusText.innerText = `[${modeLabel} | ${concurrency}x Paralel] Selesai ${completedSteps}/${totalSteps} dokumen (${pct}%) — Terakhir: ${nama} (${colName})`;
+      }
+    }
+
+    // Jalankan sejumlah N worker secara bersamaan
+    const workersPool = [];
+    for (let i = 0; i < concurrency; i++) {
+      workersPool.push(runWorker());
+    }
+    await Promise.all(workersPool);
+
+    clearInterval(timerInterval);
+    const totalDurationSec = (Date.now() - startTime) / 1000;
+    document.getElementById('elapsedTimerBadge').innerText = `Total Waktu: ${formatDuration(totalDurationSec)}`;
+    document.getElementById('etaTimerBadge').innerText = `Estimasi Selesai: 0 detik (Selesai)`;
+
+    const totalDocs = totalSteps;
+    const invalidCount = detailIssues.length;
+    const passRate = totalDocs > 0 ? ((validCount / totalDocs) * 100).toFixed(1) : 0;
+
+    document.getElementById('kpiEmployees').innerText = rawRows.length;
+    document.getElementById('kpiTotalDocs').innerText = totalDocs;
+    document.getElementById('kpiValidDocs').innerText = validCount;
+    document.getElementById('kpiInvalidDocs').innerText = invalidCount;
+    document.getElementById('kpiPassRate').innerText = `${passRate}%`;
+    document.getElementById('issueCountBadge').innerText = invalidCount;
+
+    statusText.innerText = `Pengecekan selesai dalam ${formatDuration(totalDurationSec)}! ${validCount} sesuai, ${invalidCount} tidak sesuai.`;
+    document.getElementById('reportSection').style.display = 'block';
+    
+    applyFilters();
+    btnProcess.disabled = false;
+    btnDownload.disabled = false;
+  });
+
+  function switchTab(tabName) {
+    const matrixView = document.getElementById('matrixView');
+    const issuesView = document.getElementById('issuesView');
+    const tabMatrixBtn = document.getElementById('tabMatrixBtn');
+    const tabIssuesBtn = document.getElementById('tabIssuesBtn');
+
+    if (tabName === 'matrix') {
+      matrixView.style.display = 'block';
+      issuesView.style.display = 'none';
+      tabMatrixBtn.classList.add('active');
+      tabIssuesBtn.classList.remove('active');
+    } else {
+      matrixView.style.display = 'none';
+      issuesView.style.display = 'block';
+      tabMatrixBtn.classList.remove('active');
+      tabIssuesBtn.classList.add('active');
+    }
   }
 
-  // ==================== LOGIKA TAB 3: RIWAYAT & EXPORT ====================
-  function renderRiwayat() {
-    const filter = document.getElementById("filterStatus").value;
-    const tbody = document.getElementById("riwayatTableBody");
-    tbody.innerHTML = "";
+  function applyFilters() {
+    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    const statusFilter = document.getElementById('statusFilter').value;
 
-    const filtered = cachedLogs.filter(item => {
-      if (filter === "FOLLOW_UP") return item.tipe !== "eskalasi_syam";
-      if (filter === "SAHABAT_SEHATI") return item.tipe === "eskalasi_syam";
+    const filteredMatrix = finalResults.filter(row => {
+      const matchText =
+        row['Nomor Induk Karyawan'].toLowerCase().includes(query) ||
+        row['Nama Lengkap Karyawan'].toLowerCase().includes(query);
+      if (!matchText) return false;
+
+      const hasIssue = DOC_COLUMNS.some(col => row[col] !== 'sesuai');
+      if (statusFilter === 'HAS_ISSUE' && !hasIssue) return false;
+      if (statusFilter === 'ALL_VALID' && hasIssue) return false;
       return true;
     });
 
-    if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#6b7280; padding:20px;">Belum ada data riwayat di Google Sheets.</td></tr>`;
+    const filteredIssues = detailIssues.filter(item => {
+      return (
+        item['Nomor Induk Karyawan'].toLowerCase().includes(query) ||
+        item['Nama Lengkap Karyawan'].toLowerCase().includes(query) ||
+        item['Judul Kolom Dokumen'].toLowerCase().includes(query) ||
+        item['Alasan Tidak Sesuai'].toLowerCase().includes(query)
+      );
+    });
+
+    renderMatrixTable(filteredMatrix);
+    renderIssuesTable(filteredIssues);
+  }
+
+  function renderMatrixTable(data) {
+    const thead = document.getElementById('matrixHead');
+    const tbody = document.getElementById('matrixBody');
+
+    const headers = ['Nomor Induk Karyawan', 'Nama Lengkap Karyawan', ...DOC_COLUMNS];
+    thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+    if (data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${headers.length}" style="text-align:center; padding:20px;">Tidak ada data yang cocok dengan filter.</td></tr>`;
       return;
     }
 
-    filtered.forEach((item, idx) => {
-      const isSyam = item.tipe === "eskalasi_syam";
-      const badgeClass = isSyam ? "badge-syam" : (item.tipe === "aktif" ? "badge-aktif" : "badge-nonaktif");
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${idx + 1}</td>
-        <td style="font-size:12px;">${item.waktu}</td>
-        <td><strong>${item.nama}</strong></td>
-        <td>${item.noAnggota}</td>
-        <td>${item.kode}</td>
-        <td><span class="badge ${badgeClass}">${item.kategoriLabel}</span></td>
-        <td>${item.tujuanWA}</td>
+    tbody.innerHTML = data.map(row => {
+      return `<tr>${headers.map(h => {
+        const val = row[h];
+        if (val === 'sesuai') return `<td><span class="badge-ok">sesuai</span></td>`;
+        if (val && val.startsWith('file tidak sesuai')) return `<td><span class="badge-fail">${val}</span></td>`;
+        return `<td><strong>${val}</strong></td>`;
+      }).join('')}</tr>`;
+    }).join('');
+  }
+
+  function renderIssuesTable(data) {
+    const tbody = document.getElementById('issuesBody');
+
+    if (data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px;">Tidak ada dokumen tidak sesuai ditemukan.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map((item, idx) => {
+      const linkCell = item['Link Dokumen'].startsWith('http')
+        ? `<a href="${item['Link Dokumen']}" target="_blank" class="link-btn">Buka Link</a>`
+        : item['Link Dokumen'];
+
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${item['Nomor Induk Karyawan']}</td>
+          <td><strong>${item['Nama Lengkap Karyawan']}</strong></td>
+          <td>${item['Judul Kolom Dokumen']}</td>
+          <td><span class="badge-fail">${item['Status']}</span></td>
+          <td>${item['Alasan Tidak Sesuai']}</td>
+          <td>${linkCell}</td>
+        </tr>
       `;
-      tbody.appendChild(tr);
-    });
+    }).join('');
   }
 
-  function exportRiwayatExcel() {
-    if (cachedLogs.length === 0) return alert("Belum ada data riwayat untuk diunduh.");
-
-    const dataExport = cachedLogs.map((item, idx) => ({
-      "No": idx + 1,
-      "Waktu Tindakan": item.waktu,
-      "Nama Anggota": item.nama,
-      "No HP Anggota": item.noAnggota,
-      "Kode Referral": item.kode,
-      "Status / Kategori": item.kategoriLabel,
-      "Nomor Tujuan WA": item.tujuanWA
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(dataExport);
+  btnDownload.addEventListener('click', () => {
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Riwayat_Follow_Up");
 
-    const tgl = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `Laporan_FollowUp_SahabatSehati_${tgl}.xlsx`);
-  }
+    const wsMatrix = XLSX.utils.json_to_sheet(finalResults);
+    XLSX.utils.book_append_sheet(wb, wsMatrix, 'Hasil Cek Dokumen');
 
-  // Inisialisasi awal
-  cekKodeManual();
-  fetchLogsFromGoogleSheets();
+    const issueSheetData = detailIssues.length > 0 
+      ? detailIssues 
+      : [{ 'Keterangan': 'Semua dokumen karyawan sudah sesuai' }];
+    const wsIssues = XLSX.utils.json_to_sheet(issueSheetData);
+    XLSX.utils.book_append_sheet(wb, wsIssues, 'Detail Alasan Tidak Sesuai');
+
+    XLSX.writeFile(wb, 'HASIL_CEK_DOKUMEN_KARYAWAN.xlsx');
+  });
 </script>
 
 </body>
