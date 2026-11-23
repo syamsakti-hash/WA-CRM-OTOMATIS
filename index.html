@@ -77,6 +77,17 @@
     .radio-title { font-weight: 600; font-size: 14px; display: block; }
     .radio-desc { font-size: 12px; color: #6b7280; margin-top: 2px; display: block; }
     .warning-text { color: #dc2626; font-size: 12px; margin-top: 5px; display: none; font-weight: 500; }
+    .dup-alert {
+      background-color: #fef3c7;
+      border: 1px solid #f59e0b;
+      color: #92400e;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-top: 6px;
+      display: none;
+      font-weight: 600;
+    }
 
     .preview-box {
       background-color: #e7ffdb;
@@ -190,7 +201,8 @@
 
       <div class="form-group">
         <label for="noTelp">Nomor Telepon Anggota</label>
-        <input type="tel" id="noTelp" placeholder="Contoh: 081234567890" oninput="simpanNoManual(); updateManualPreview();">
+        <input type="tel" id="noTelp" placeholder="Contoh: 081234567890" oninput="simpanNoManual(); cekDuplikatManual(); updateManualPreview();">
+        <div id="dupAlertManual" class="dup-alert"></div>
       </div>
 
       <div class="form-group">
@@ -227,7 +239,7 @@
             <input type="radio" name="templateOpt" id="optSyam" value="eskalasi_syam" onchange="handleManualTemplate()">
             <div>
               <span class="radio-title">3. Sarankan Jadi Sahabat Sehati (Kirim ke Mas Syam)</span>
-              <span class="radio-desc">Otomatis mengirim ke 085156327726 untuk aktivasi Sahabat Sehati.</span>
+              <span class="radio-desc">Otomatis mengirim ke 085156327726 beserta kode referralnya untuk aktivasi Sahabat Sehati.</span>
             </div>
           </label>
         </div>
@@ -360,7 +372,8 @@
     } else if (type === "non_aktif") {
       return `Dear Bpk/Ibu ${n} jika ada calon anggota yang akan direkomendasikan bisa langsung menghubungi kami di wa ini, dan akan langsung kami follow up ke cabang terdekat.`;
     } else {
-      return `Dear mas syam tolong dibantu atas ${n} ini kode referralnya sudah tidak aktif dan minta untuk di jadikan sebagai sahabat sehati`;
+      const kSyam = kode || "-";
+      return `Dear mas syam tolong dibantu atas ${n} dengan kode referral ${kSyam} ini kode referralnya sudah tidak aktif dan minta untuk di jadikan sebagai sahabat sehati`;
     }
   }
 
@@ -382,7 +395,7 @@
 
   function cekSudahFollowUp(noHp) {
     const cleanTarget = formatNomorWA(noHp);
-    if (!cleanTarget) return null;
+    if (!cleanTarget || cleanTarget === formatNomorWA(NO_MAS_SYAM)) return null;
     const logs = getLogs();
     return logs.find(item => formatNomorWA(item.noAnggota) === cleanTarget) || null;
   }
@@ -403,6 +416,18 @@
     const selected = document.querySelector('input[name="templateOpt"]:checked').value;
     if (selected !== "eskalasi_syam") {
       savedMemberPhone = document.getElementById("noTelp").value;
+    }
+  }
+
+  function cekDuplikatManual() {
+    const raw = document.getElementById("noTelp").value;
+    const alertBox = document.getElementById("dupAlertManual");
+    const existing = cekSudahFollowUp(raw);
+    if (existing) {
+      alertBox.style.display = "block";
+      alertBox.innerText = `⚠️ Nomor ini sudah tercatat di riwayat (${existing.kategoriLabel}) pada ${existing.waktu}.`;
+    } else {
+      alertBox.style.display = "none";
     }
   }
 
@@ -485,6 +510,8 @@
       tujuanWA: targetPhone
     });
 
+    cekDuplikatManual();
+
     const waUrl = `https://wa.me/${formatNomorWA(targetPhone)}?text=${encodeURIComponent(pesan)}`;
     window.open(waUrl, "_blank");
   }
@@ -495,6 +522,7 @@
     document.getElementById("noTelp").readOnly = false;
     document.getElementById("kodeReferral").value = "";
     document.getElementById("hariAktif").value = "30";
+    document.getElementById("dupAlertManual").style.display = "none";
     savedMemberPhone = "";
     document.getElementById("optNonAktif").checked = true;
     cekKodeManual();
