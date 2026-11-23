@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WhatsApp Sender & Tracker - Sahabat Sehati</title>
-  <!-- Library SheetJS untuk baca & export file Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -28,7 +27,9 @@
       gap: 10px;
     }
     .header h2 { margin: 0; color: #075E54; font-size: 22px; }
-    .brand { font-size: 12px; color: #6b7280; font-weight: 600; }
+    .sync-status { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 20px; background: #ecfdf5; color: #047857; }
+    .sync-status.loading { background: #fef3c7; color: #b45309; }
+    .sync-status.error { background: #fee2e2; color: #b91c1c; }
 
     /* Tabs */
     .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #d1d5db; padding-bottom: 10px; flex-wrap: wrap; }
@@ -41,7 +42,6 @@
       border-radius: 8px;
       cursor: pointer;
       font-size: 14px;
-      transition: all 0.2s;
     }
     .tab-btn.active { background: #075E54; color: #ffffff; }
     .tab-content { display: none; }
@@ -127,7 +127,6 @@
     }
     .btn-secondary:hover { background-color: #d1d5db; }
     .btn-export { background-color: #075E54; color: white; border: none; padding: 9px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
-    .btn-danger { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 8px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; }
 
     /* Table */
     .table-wrapper { overflow-x: auto; margin-top: 16px; }
@@ -175,6 +174,7 @@
     }
     .stat-num { font-size: 24px; font-weight: 700; color: #075E54; }
     .stat-label { font-size: 12px; color: #6b7280; font-weight: 600; }
+    .footer-brand { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 24px; }
   </style>
 </head>
 <body>
@@ -182,13 +182,13 @@
 <div class="container">
   <div class="header">
     <h2>WhatsApp Sender & Tracker - Sahabat Sehati</h2>
-    <div class="brand">powered by Asy-Syam Sakti</div>
+    <div id="syncBadge" class="sync-status loading">Menghubungkan ke Google Sheets...</div>
   </div>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('tabManual', this)">1. Input Manual</button>
     <button class="tab-btn" onclick="switchTab('tabUpload', this)">2. Upload File Excel</button>
-    <button class="tab-btn" onclick="switchTab('tabRiwayat', this)">3. Riwayat Follow Up (<span id="countBadge">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('tabRiwayat', this)">3. Riwayat Google Sheets (<span id="countBadge">0</span>)</button>
   </div>
 
   <!-- TAB 1: INPUT MANUAL -->
@@ -250,7 +250,7 @@
         <div id="previewText"></div>
       </div>
 
-      <button type="button" class="btn-primary" onclick="kirimManualWA()">Kirim via WhatsApp & Simpan Riwayat</button>
+      <button type="button" class="btn-primary" onclick="kirimManualWA()">Kirim via WhatsApp & Catat ke Google Sheets</button>
       <button type="button" class="btn-secondary" style="width:100%; margin-top:8px;" onclick="resetManualForm()">Reset Form</button>
     </div>
   </div>
@@ -280,7 +280,7 @@
             <th>Kode Referral</th>
             <th>Hari Aktif</th>
             <th>Pilihan Template</th>
-            <th>Status Riwayat</th>
+            <th>Status di Google Sheets</th>
             <th>Aksi</th>
           </tr>
         </thead>
@@ -289,16 +289,16 @@
     </div>
   </div>
 
-  <!-- TAB 3: RIWAYAT FOLLOW UP -->
+  <!-- TAB 3: RIWAYAT GOOGLE SHEETS -->
   <div id="tabRiwayat" class="tab-content">
     <div class="stats-bar">
       <div class="stat-card">
         <div class="stat-num" id="statTotal">0</div>
-        <div class="stat-label">Total Sudah Di-Follow Up</div>
+        <div class="stat-label">Total Tercatat di Sheets</div>
       </div>
       <div class="stat-card">
         <div class="stat-num" id="statAktif" style="color:#16a34a;">0</div>
-        <div class="stat-label">Referral Aktif / Non-Aktif</div>
+        <div class="stat-label">Follow Up Anggota</div>
       </div>
       <div class="stat-card">
         <div class="stat-num" id="statSyam" style="color:#2563eb;">0</div>
@@ -316,8 +316,8 @@
         </select>
       </div>
       <div style="display:flex; gap:8px;">
-        <button type="button" class="btn-export" onclick="exportRiwayatExcel()">Download Laporan Excel (.xlsx)</button>
-        <button type="button" class="btn-danger" onclick="hapusSemuaRiwayat()">Hapus Riwayat</button>
+        <button type="button" class="btn-secondary" onclick="fetchLogsFromGoogleSheets()">Refresh Data Sheets</button>
+        <button type="button" class="btn-export" onclick="exportRiwayatExcel()">Download Excel (.xlsx)</button>
       </div>
     </div>
 
@@ -332,20 +332,82 @@
             <th>Kode Referral</th>
             <th>Kategori Tindakan</th>
             <th>Tujuan Kirim</th>
-            <th>Hapus</th>
           </tr>
         </thead>
         <tbody id="riwayatTableBody"></tbody>
       </table>
     </div>
   </div>
+
+  <div class="footer-brand">powered by Asy-Syam Sakti</div>
 </div>
 
 <script>
+  // ================= KONFIGURASI WAJIB =================
+  // TEMPEL URL WEB APP GOOGLE APPS SCRIPT ANDA DI BAWAH INI:
+  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNt-mR7siv2LYNdY9hzIBrZ4jA_8LlyMcH1qgZ-uaajV0bBlgFYlD0YXyF3GOa0iZN/exec";
+  // =====================================================
+
   const NO_MAS_SYAM = "085156327726";
-  const STORAGE_KEY = "sahabat_sehati_followup_logs_v1";
   let savedMemberPhone = "";
   let uploadedRows = [];
+  let cachedLogs = [];
+
+  // ==================== KONEKSI GOOGLE SHEETS ====================
+  function setSyncBadge(state, text) {
+    const el = document.getElementById("syncBadge");
+    el.className = "sync-status " + state;
+    el.innerText = text;
+  }
+
+  async function fetchLogsFromGoogleSheets() {
+    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("TEMPEL_URL")) {
+      setSyncBadge("error", "URL Google Apps Script belum dipasang");
+      return;
+    }
+
+    setSyncBadge("loading", "Menyinkronkan data Google Sheets...");
+    try {
+      const res = await fetch(GOOGLE_SCRIPT_URL);
+      const json = await res.json();
+      if (json.status === "success") {
+        cachedLogs = json.data || [];
+        updateStats();
+        renderRiwayat();
+        cekDuplikatManual();
+        if (uploadedRows.length > 0) renderUploadTable();
+        setSyncBadge("", "Terhubung ke Google Sheets ✓");
+      } else {
+        setSyncBadge("error", "Gagal membaca data Sheets");
+      }
+    } catch (err) {
+      console.error(err);
+      setSyncBadge("error", "Koneksi ke Google Sheets terputus");
+    }
+  }
+
+  async function sendLogToGoogleSheets(entry) {
+    // Tambahkan langsung ke cache lokal agar UI langsung responsif
+    cachedLogs.unshift(entry);
+    updateStats();
+    renderRiwayat();
+
+    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("TEMPEL_URL")) return;
+
+    setSyncBadge("loading", "Menyimpan ke Google Sheets...");
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors", // Menghindari blokir CORS saat POST ke Apps Script
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry)
+      });
+      setSyncBadge("", "Tersimpan di Google Sheets ✓");
+    } catch (err) {
+      console.error(err);
+      setSyncBadge("error", "Gagal menyimpan ke Google Sheets");
+    }
+  }
 
   // ==================== NAVIGASI TAB ====================
   function switchTab(tabId, btn) {
@@ -377,36 +439,18 @@
     }
   }
 
-  // ==================== PENYIMPANAN RIWAYAT (LOCALSTORAGE) ====================
-  function getLogs() {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveLog(entry) {
-    const logs = getLogs();
-    logs.unshift(entry);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-    updateStats();
-  }
-
   function cekSudahFollowUp(noHp) {
     const cleanTarget = formatNomorWA(noHp);
     if (!cleanTarget || cleanTarget === formatNomorWA(NO_MAS_SYAM)) return null;
-    const logs = getLogs();
-    return logs.find(item => formatNomorWA(item.noAnggota) === cleanTarget) || null;
+    return cachedLogs.find(item => formatNomorWA(item.noAnggota) === cleanTarget) || null;
   }
 
   function updateStats() {
-    const logs = getLogs();
-    const syamCount = logs.filter(l => l.tipe === "eskalasi_syam").length;
-    const memberCount = logs.length - syamCount;
+    const syamCount = cachedLogs.filter(l => l.tipe === "eskalasi_syam").length;
+    const memberCount = cachedLogs.length - syamCount;
 
-    document.getElementById("countBadge").innerText = logs.length;
-    document.getElementById("statTotal").innerText = logs.length;
+    document.getElementById("countBadge").innerText = cachedLogs.length;
+    document.getElementById("statTotal").innerText = cachedLogs.length;
     document.getElementById("statAktif").innerText = memberCount;
     document.getElementById("statSyam").innerText = syamCount;
   }
@@ -425,7 +469,7 @@
     const existing = cekSudahFollowUp(raw);
     if (existing) {
       alertBox.style.display = "block";
-      alertBox.innerText = `⚠️ Nomor ini sudah tercatat di riwayat (${existing.kategoriLabel}) pada ${existing.waktu}.`;
+      alertBox.innerText = `⚠️ Nomor ini sudah tercatat di Google Sheets (${existing.kategoriLabel}) pada ${existing.waktu}.`;
     } else {
       alertBox.style.display = "none";
     }
@@ -497,8 +541,7 @@
     const memberPhoneRecord = (selected === "eskalasi_syam") ? (savedMemberPhone || "-") : rawPhone;
     const pesan = buildMessage(selected, nama, kode, aktif);
 
-    saveLog({
-      id: Date.now(),
+    const entry = {
       waktu: new Date().toLocaleString("id-ID"),
       nama: nama,
       noAnggota: memberPhoneRecord,
@@ -508,8 +551,9 @@
         ? "Disarankan Sahabat Sehati (Mas Syam)"
         : (selected === "aktif" ? "Follow Up - Referral Aktif" : "Follow Up - Referral Non-Aktif"),
       tujuanWA: targetPhone
-    });
+    };
 
+    sendLogToGoogleSheets(entry);
     cekDuplikatManual();
 
     const waUrl = `https://wa.me/${formatNomorWA(targetPhone)}?text=${encodeURIComponent(pesan)}`;
@@ -644,8 +688,7 @@
 
     const pesan = buildMessage(item.template, item.nama, item.kode, item.aktif);
 
-    saveLog({
-      id: Date.now() + index,
+    sendLogToGoogleSheets({
       waktu: new Date().toLocaleString("id-ID"),
       nama: item.nama,
       noAnggota: item.nomor || "-",
@@ -666,19 +709,18 @@
 
   // ==================== LOGIKA TAB 3: RIWAYAT & EXPORT ====================
   function renderRiwayat() {
-    const logs = getLogs();
     const filter = document.getElementById("filterStatus").value;
     const tbody = document.getElementById("riwayatTableBody");
     tbody.innerHTML = "";
 
-    const filtered = logs.filter(item => {
+    const filtered = cachedLogs.filter(item => {
       if (filter === "FOLLOW_UP") return item.tipe !== "eskalasi_syam";
       if (filter === "SAHABAT_SEHATI") return item.tipe === "eskalasi_syam";
       return true;
     });
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#6b7280; padding:20px;">Belum ada data riwayat tersimpan.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#6b7280; padding:20px;">Belum ada data riwayat di Google Sheets.</td></tr>`;
       return;
     }
 
@@ -694,32 +736,15 @@
         <td>${item.kode}</td>
         <td><span class="badge ${badgeClass}">${item.kategoriLabel}</span></td>
         <td>${item.tujuanWA}</td>
-        <td><button type="button" class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="hapusSatuRiwayat(${item.id})">Hapus</button></td>
       `;
       tbody.appendChild(tr);
     });
   }
 
-  function hapusSatuRiwayat(id) {
-    const logs = getLogs().filter(item => item.id !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-    updateStats();
-    renderRiwayat();
-  }
-
-  function hapusSemuaRiwayat() {
-    if (!confirm("Yakin ingin menghapus seluruh riwayat follow up dari browser ini?")) return;
-    localStorage.removeItem(STORAGE_KEY);
-    updateStats();
-    renderRiwayat();
-    if (uploadedRows.length > 0) renderUploadTable();
-  }
-
   function exportRiwayatExcel() {
-    const logs = getLogs();
-    if (logs.length === 0) return alert("Belum ada data riwayat untuk diunduh.");
+    if (cachedLogs.length === 0) return alert("Belum ada data riwayat untuk diunduh.");
 
-    const dataExport = logs.map((item, idx) => ({
+    const dataExport = cachedLogs.map((item, idx) => ({
       "No": idx + 1,
       "Waktu Tindakan": item.waktu,
       "Nama Anggota": item.nama,
@@ -739,7 +764,7 @@
 
   // Inisialisasi awal
   cekKodeManual();
-  updateStats();
+  fetchLogsFromGoogleSheets();
 </script>
 
 </body>
