@@ -331,7 +331,7 @@
 <div class="container">
   <h1>Sistem Pengecekan Kualitas & Kesesuaian Dokumen Karyawan (Turbo Mode)</h1>
   <p class="desc">
-    Menggunakan <b>Parallel Batch Processing</b> (memproses banyak dokumen bersamaan) dan optimasi resolusi agar pengecekan puluhan hingga ratusan karyawan berjalan jauh lebih cepat.
+    Mendukung pengecekan dokumen fisik maupun dokumen digital/screenshot aplikasi resmi pemerintah (<b>IKD KTP Digital, JMO BPJS Ketenagakerjaan, Mobile JKN</b>) dengan <b>Parallel Batch Processing</b> dan <b>GitHub Vision AI</b>.
   </p>
 
   <!-- Konfigurasi GitHub AI -->
@@ -477,12 +477,12 @@
   ];
 
   const DOC_FILENAME_ALIASES = {
-    'KTP': ['KTP'],
+    'KTP': ['KTP', 'IKD'],
     'KARTU KELUARGA': ['KARTU KELUARGA', 'KK'],
     'IJAZAH': ['IJAZAH'],
     'TRANSKIP NILAI': ['TRANSKRIP', 'TRANSKIP'],
-    'KARTU BPJS KETENAGAKERJAAN': ['BPJS TK', 'KETENAGAKERJAAN', 'BPJSTK'],
-    'KARTU BPJS KESEHATAN': ['BPJS KES', 'KESEHATAN', 'KIS', 'BPJSKES'],
+    'KARTU BPJS KETENAGAKERJAAN': ['BPJS TK', 'KETENAGAKERJAAN', 'BPJSTK', 'JMO'],
+    'KARTU BPJS KESEHATAN': ['BPJS KES', 'KESEHATAN', 'KIS', 'BPJSKES', 'JKN'],
     'NPWP': ['NPWP'],
     'STR': ['STR'],
     'SIP': ['SIP'],
@@ -490,12 +490,12 @@
   };
 
   const DOC_KEYWORDS = {
-    'KTP': ['PROVINSI', 'NIK', 'NAMA', 'LAHIR', 'ALAMAT', 'KEL', 'KECAMATAN', 'AGAMA', 'PERKAWINAN', 'PEKERJAAN', 'KEWARGANEGARAAN'],
+    'KTP': ['PROVINSI', 'NIK', 'NAMA', 'LAHIR', 'ALAMAT', 'KEL', 'KECAMATAN', 'AGAMA', 'PERKAWINAN', 'PEKERJAAN', 'KEWARGANEGARAAN', 'BERLAKU', 'SEUMUR'],
     'KARTU KELUARGA': ['KARTU KELUARGA', 'KEPALA KELUARGA', 'NIK', 'NAMA LENGKAP', 'SUSUNAN', 'HUBUNGAN', 'DESA', 'KECAMATAN'],
     'IJAZAH': ['IJAZAH', 'UNIVERSITAS', 'MEMBERIKAN', 'SARJANA', 'FAKULTAS', 'PROGRAM STUDI', 'REKTOR', 'DEKAN', 'KELULUSAN'],
     'TRANSKIP NILAI': ['TRANSKRIP', 'AKADEMIK', 'MATA KULIAH', 'SKS', 'INDEKS PRESTASI', 'KUMULATIF', 'UNIVERSITAS', 'NIM', 'NOMOR POKOK'],
-    'KARTU BPJS KETENAGAKERJAAN': ['BPJS', 'KETENAGAKERJAAN', 'KARTU PESERTA', 'PESERTA'],
-    'KARTU BPJS KESEHATAN': ['KARTU INDONESIA SEHAT', 'BPJS', 'KESEHATAN', 'NOMOR KARTU', 'FASKES', 'NIK'],
+    'KARTU BPJS KETENAGAKERJAAN': ['BPJS', 'KETENAGAKERJAAN', 'KARTU PESERTA', 'PESERTA', 'JAMSOSTEK', 'JMO', 'KPJ'],
+    'KARTU BPJS KESEHATAN': ['KARTU INDONESIA SEHAT', 'BPJS', 'KESEHATAN', 'NOMOR KARTU', 'FASKES', 'NIK', 'JKN', 'MOBILE'],
     'NPWP': ['NPWP', 'PAJAK', 'DIREKTORAT JENDERAL', 'KEMENTERIAN KEUANGAN', 'WAJIB PAJAK'],
     'STR': ['SURAT TANDA REGISTRASI', 'KONSIL', 'TENAGA KESEHATAN', 'REGISTRASI'],
     'SIP': ['SURAT IZIN PRAKTIK', 'DINAS KESEHATAN', 'PRAKTIK', 'IZIN'],
@@ -537,7 +537,6 @@
     return mins > 0 ? `${mins} menit ${remSecs} detik` : `${remSecs} detik`;
   }
 
-  // Inisialisasi Pool OCR Worker (3 worker paralel bahasa 'eng' agar download & OCR 4x lebih cepat)
   async function getOcrScheduler() {
     if (ocrScheduler) return ocrScheduler;
     const scheduler = Tesseract.createScheduler();
@@ -609,7 +608,6 @@
     return null;
   }
 
-  // Fetch dengan batas waktu (Timeout 6 detik) agar tidak macet di link rusak
   async function fetchWithTimeout(resource, timeoutMs = 6000) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -623,7 +621,6 @@
     }
   }
 
-  // Membuat Canvas terpisah per task (aman untuk proses paralel!)
   async function loadLocalFileToNewCanvas(file) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -632,7 +629,6 @@
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const page = await pdf.getPage(1);
-      // Scale 1.3 sudah sangat tajam untuk OCR dan jauh lebih cepat dari 2.0
       const viewport = page.getViewport({ scale: 1.3 });
 
       canvas.width = viewport.width;
@@ -663,7 +659,6 @@
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const driveId = extractDriveId(url);
 
-    // Gunakan resolusi w1000 agar download 3x lebih cepat namun teks tetap terbaca jelas
     const imgUrl = driveId 
       ? `https://lh3.googleusercontent.com/d/${driveId}=w1000` 
       : url;
@@ -715,7 +710,6 @@
     }
   }
 
-  // Resize canvas ke max lebar 850px untuk mempercepat OCR & AI
   function resizeCanvasForFastCheck(sourceCanvas, maxW = 850) {
     if (sourceCanvas.width <= maxW) return sourceCanvas;
     const scale = maxW / sourceCanvas.width;
@@ -757,7 +751,11 @@
     const base64Image = fastCanvas.toDataURL('image/jpeg', 0.8);
 
     const promptText = `Auditor HRD: Cek gambar untuk kolom "${docType}" milik "${employeeName}".
-Tolak jika: 1) Blank/kosong, 2) Blur/buram parah, 3) Terlalu jauh/kecil sehingga teks tak terbaca, 4) Dokumen tertukar (bukan ${docType}).
+Aturan khusus dokumen digital & fisik:
+- Untuk "KTP": terima foto e-KTP fisik MAUPUN tangkapan layar (screenshot) KTP Digital dari aplikasi Identitas Kependudukan Digital (IKD) yang ber-watermark NIK/tanggal.
+- Untuk "KARTU BPJS KETENAGAKERJAAN": terima kartu fisik, file kartu digital JMO (Jamsostek Mobile), MAUPUN screenshot kartu peserta dari aplikasi JMO.
+- Untuk "KARTU BPJS KESEHATAN": terima kartu fisik KIS/BPJS maupun kartu digital/screenshot dari aplikasi Mobile JKN.
+- Tolak HANYA jika: 1) Gambar blank/kosong, 2) Blur/buram parah sehingga nama/nomor tidak terbaca, 3) Foto terlalu jauh/kecil, 4) Dokumen tertukar (bukan ${docType}).
 Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan": "alasan singkat bahasa Indonesia"}`;
 
     const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
@@ -801,7 +799,7 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
   }
 
   function analyzeImageQualityLocal(canvas) {
-    if (canvas.width < 280 || canvas.height < 180) {
+    if (canvas.width < 250 || canvas.height < 160) {
       return { valid: false, reason: 'Foto terlalu jauh / resolusi terlalu kecil' };
     }
 
@@ -836,7 +834,8 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
     const lapMean = lapSum / count;
     const lapVariance = (lapSqSum / count) - (lapMean * lapMean);
 
-    if (lapVariance < 60) {
+    // Threshold 25 agar kartu digital gradasi halus (JMO / IKD) tetap lolos
+    if (lapVariance < 25) {
       return { valid: false, reason: 'Foto blur / buram / tidak fokus' };
     }
     return { valid: true };
@@ -848,7 +847,7 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
     const { data: { text } } = await scheduler.addJob('recognize', fastCanvas);
     const upperText = text.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').trim();
 
-    if (upperText.length < 15) {
+    if (upperText.length < 12) {
       return { valid: false, reason: 'Foto terlalu jauh / teks dokumen tidak terbaca' };
     }
 
@@ -874,19 +873,16 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
     const aiModel = document.getElementById('aiModelSelect').value;
     const concurrency = parseInt(document.getElementById('concurrencySelect').value, 10) || 5;
 
-    // Pre-load OCR scheduler di awal jika tidak pakai token AI
     if (!ghToken) {
       statusText.innerText = 'Menyiapkan 3 worker OCR paralel...';
       await getOcrScheduler();
     }
 
-    // Siapkan struktur hasil per karyawan terlebih dahulu
     finalResults = rawRows.map(row => ({
       'Nomor Induk Karyawan': String(row['Nomor Induk Karyawan'] || '').trim(),
       'Nama Lengkap Karyawan': String(row['Nama Lengkap Karyawan'] || '').trim()
     }));
 
-    // Buat daftar seluruh antrean tugas (Task Queue)
     const tasks = [];
     rawRows.forEach((row, rIdx) => {
       const nik = finalResults[rIdx]['Nomor Induk Karyawan'];
@@ -907,7 +903,6 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
     let validCount = 0;
     let taskCursor = 0;
 
-    // Timer Real-Time
     const startTime = Date.now();
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
@@ -921,7 +916,6 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
       }
     }, 500);
 
-    // Worker function yang mengambil tugas secara paralel
     async function runWorker() {
       while (taskCursor < tasks.length) {
         const currentIndex = taskCursor++;
@@ -986,7 +980,6 @@ Balas JSON saja: {"sesuai": true, "alasan": ""} atau {"sesuai": false, "alasan":
       }
     }
 
-    // Jalankan sejumlah N worker secara bersamaan
     const workersPool = [];
     for (let i = 0; i < concurrency; i++) {
       workersPool.push(runWorker());
