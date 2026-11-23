@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Sender & Tracker - Sahabat Sehati</title>
+  <!-- Library SheetJS untuk baca & export file Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f0f2f5; margin: 0; padding: 20px; color: #1f2937; }
+    .container {
+      max-width: 1050px;
+      margin: 10px auto;
+      background: #ffffff;
+      padding: 26px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 14px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .header h2 { margin: 0; color: #075E54; font-size: 22px; }
+    .brand { font-size: 12px; color: #6b7280; font-weight: 600; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #d1d5db; padding-bottom: 10px; flex-wrap: wrap; }
+    .tab-btn {
+      padding: 10px 18px;
+      border: none;
+      background: #e5e7eb;
+      color: #374151;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .tab-btn.active { background: #075E54; color: #ffffff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Form Manual */
+    .manual-box { max-width: 620px; margin: 0 auto; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #374151; }
+    input[type="text"], input[type="tel"], input[type="number"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    input:focus, select:focus { outline: none; border-color: #128C7E; box-shadow: 0 0 0 3px rgba(18, 140, 126, 0.15); }
+    input[readonly] { background-color: #f3f4f6; color: #4b5563; cursor: not-allowed; }
+
+    .radio-group { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+    .radio-card {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .radio-card:hover:not(.disabled) { border-color: #128C7E; background-color: #f0fdf4; }
+    .radio-card.active { border-color: #075E54; background-color: #ecfdf5; border-width: 2px; }
+    .radio-card.disabled { opacity: 0.5; cursor: not-allowed; background-color: #f9fafb; }
+    .radio-title { font-weight: 600; font-size: 14px; display: block; }
+    .radio-desc { font-size: 12px; color: #6b7280; margin-top: 2px; display: block; }
+    .warning-text { color: #dc2626; font-size: 12px; margin-top: 5px; display: none; font-weight: 500; }
+
+    .preview-box {
+      background-color: #e7ffdb;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 18px;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .preview-label { font-size: 11px; font-weight: 700; color: #075E54; text-transform: uppercase; margin-bottom: 5px; display: block; }
+
+    /* Buttons */
+    .btn-primary {
+      background-color: #25D366;
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 16px;
+    }
+    .btn-primary:hover { background-color: #1ebe5d; }
+    .btn-secondary {
+      background-color: #e5e7eb;
+      color: #374151;
+      border: none;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-secondary:hover { background-color: #d1d5db; }
+    .btn-export { background-color: #075E54; color: white; border: none; padding: 9px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    .btn-danger { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 8px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; }
+
+    /* Table */
+    .table-wrapper { overflow-x: auto; margin-top: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; vertical-align: middle; }
+    th { background-color: #075E54; color: white; font-weight: 600; }
+    tr.row-done { background-color: #f0fdf4; }
+    tr.row-syam { background-color: #eff6ff; }
+
+    .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; display: inline-block; }
+    .badge-aktif { background: #dcfce7; color: #166534; }
+    .badge-nonaktif { background: #fef3c7; color: #92400e; }
+    .badge-syam { background: #dbeafe; color: #1e40af; }
+    .badge-warn { background: #fee2e2; color: #991b1b; }
+
+    .btn-sm-wa {
+      background: #25D366;
+      color: white;
+      border: none;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .btn-sm-wa.syam-mode { background: #2563eb; }
+    .btn-sm-wa.clicked { background: #6b7280; }
+
+    .upload-zone {
+      border: 2px dashed #128C7E;
+      background: #f0fdf4;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .stats-bar { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 16px; }
+    .stat-card {
+      flex: 1;
+      min-width: 180px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      padding: 14px;
+      border-radius: 8px;
+    }
+    .stat-num { font-size: 24px; font-weight: 700; color: #075E54; }
+    .stat-label { font-size: 12px; color: #6b7280; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h2>WhatsApp Sender & Tracker - Sahabat Sehati</h2>
+    <div class="brand">powered by Asy-Syam Sakti</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tabManual', this)">1. Input Manual</button>
+    <button class="tab-btn" onclick="switchTab('tabUpload', this)">2. Upload File Excel</button>
+    <button class="tab-btn" onclick="switchTab('tabRiwayat', this)">3. Riwayat Follow Up (<span id="countBadge">0</span>)</button>
+  </div>
+
+  <!-- TAB 1: INPUT MANUAL -->
+  <div id="tabManual" class="tab-content active">
+    <div class="manual-box">
+      <div class="form-group">
+        <label for="namaAnggota">Nama Anggota</label>
+        <input type="text" id="namaAnggota" placeholder="Contoh: Budi Santoso" oninput="updateManualPreview()">
+      </div>
+
+      <div class="form-group">
+        <label for="noTelp">Nomor Telepon Anggota</label>
+        <input type="tel" id="noTelp" placeholder="Contoh: 081234567890" oninput="simpanNoManual(); updateManualPreview();">
+      </div>
+
+      <div class="form-group">
+        <label for="kodeReferral">Kode Referral <span style="font-weight:normal; color:#6b7280;">(Kosongkan jika tidak punya / non-aktif)</span></label>
+        <input type="text" id="kodeReferral" placeholder="Contoh: SHT2600012121" oninput="cekKodeManual()">
+        <div id="warnKode" class="warning-text">* Kode referral kosong: otomatis memilih template Non-Aktif / Eskalasi.</div>
+      </div>
+
+      <div class="form-group" id="groupHariAktif" style="display: none;">
+        <label for="hariAktif">Masa Berlaku (Hari)</label>
+        <input type="number" id="hariAktif" value="30" min="1" oninput="updateManualPreview()">
+      </div>
+
+      <div class="form-group">
+        <label>Pilih Template Pesan</label>
+        <div class="radio-group">
+          <label class="radio-card disabled" id="cardAktif">
+            <input type="radio" name="templateOpt" id="optAktif" value="aktif" disabled onchange="handleManualTemplate()">
+            <div>
+              <span class="radio-title">1. Kode Referral Aktif</span>
+              <span class="radio-desc">Kirim kuota 5 anggota & masa aktif ke anggota.</span>
+            </div>
+          </label>
+
+          <label class="radio-card active" id="cardNonAktif">
+            <input type="radio" name="templateOpt" id="optNonAktif" value="non_aktif" checked onchange="handleManualTemplate()">
+            <div>
+              <span class="radio-title">2. Kode Referral Non-Aktif</span>
+              <span class="radio-desc">Informasikan anggota untuk merekomendasikan calon anggota lewat WA ini.</span>
+            </div>
+          </label>
+
+          <label class="radio-card" id="cardSyam">
+            <input type="radio" name="templateOpt" id="optSyam" value="eskalasi_syam" onchange="handleManualTemplate()">
+            <div>
+              <span class="radio-title">3. Sarankan Jadi Sahabat Sehati (Kirim ke Mas Syam)</span>
+              <span class="radio-desc">Otomatis mengirim ke 085156327726 untuk aktivasi Sahabat Sehati.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="preview-box">
+        <span class="preview-label">Preview Pesan WhatsApp:</span>
+        <div id="previewText"></div>
+      </div>
+
+      <button type="button" class="btn-primary" onclick="kirimManualWA()">Kirim via WhatsApp & Simpan Riwayat</button>
+      <button type="button" class="btn-secondary" style="width:100%; margin-top:8px;" onclick="resetManualForm()">Reset Form</button>
+    </div>
+  </div>
+
+  <!-- TAB 2: UPLOAD EXCEL -->
+  <div id="tabUpload" class="tab-content">
+    <div class="upload-zone">
+      <p style="margin-top:0; font-weight:600; color:#075E54;">Upload File Excel (.xlsx / .xls / .csv)</p>
+      <p style="font-size:13px; color:#4b5563; margin-bottom:14px;">
+        Gunakan header kolom: <b>nama</b>, <b>nomor</b>, <b>kode</b> (opsional), dan <b>aktif</b> (opsional, default 30 hari).
+      </p>
+      <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv" />
+      <div style="margin-top:12px;">
+        <button type="button" class="btn-secondary" onclick="downloadTemplateExcel()">Download Contoh Format Excel</button>
+      </div>
+    </div>
+
+    <div id="uploadSummary" style="margin-top:14px; font-weight:600; color:#075E54;"></div>
+
+    <div class="table-wrapper" id="uploadTableWrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama Anggota</th>
+            <th>No. HP Anggota</th>
+            <th>Kode Referral</th>
+            <th>Hari Aktif</th>
+            <th>Pilihan Template</th>
+            <th>Status Riwayat</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="uploadTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 3: RIWAYAT FOLLOW UP -->
+  <div id="tabRiwayat" class="tab-content">
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-label">Total Sudah Di-Follow Up</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statAktif" style="color:#16a34a;">0</div>
+        <div class="stat-label">Referral Aktif / Non-Aktif</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statSyam" style="color:#2563eb;">0</div>
+        <div class="stat-label">Disarankan Sahabat Sehati</div>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label style="margin:0;">Filter Status:</label>
+        <select id="filterStatus" style="width:auto;" onchange="renderRiwayat()">
+          <option value="ALL">Semua Data</option>
+          <option value="FOLLOW_UP">Sudah Di-Follow Up (Anggota)</option>
+          <option value="SAHABAT_SEHATI">Disarankan Sahabat Sehati (Mas Syam)</option>
+        </select>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-export" onclick="exportRiwayatExcel()">Download Laporan Excel (.xlsx)</button>
+        <button type="button" class="btn-danger" onclick="hapusSemuaRiwayat()">Hapus Riwayat</button>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Waktu</th>
+            <th>Nama Anggota</th>
+            <th>No. HP Anggota</th>
+            <th>Kode Referral</th>
+            <th>Kategori Tindakan</th>
+            <th>Tujuan Kirim</th>
+            <th>Hapus</th>
+          </tr>
+        </thead>
+        <tbody id="riwayatTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const NO_MAS_SYAM = "085156327726";
+  const STORAGE_KEY = "sahabat_sehati_followup_logs_v1";
+  let savedMemberPhone = "";
+  let uploadedRows = [];
+
+  // ==================== NAVIGASI TAB ====================
+  function switchTab(tabId, btn) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+    if (tabId === "tabRiwayat") renderRiwayat();
+  }
+
+  // ==================== HELPER FORMAT & MESSAGE ====================
+  function formatNomorWA(raw) {
+    let num = String(raw || "").replace(/[^0-9]/g, "");
+    if (num.startsWith("0")) num = "62" + num.slice(1);
+    return num;
+  }
+
+  function buildMessage(type, nama, kode, aktif) {
+    const n = nama || "{NAMA}";
+    const k = kode || "{KODE}";
+    const a = aktif || "30";
+    if (type === "aktif") {
+      return `Dear Bpk/Ibu ${n}, kode referral Anda ${k} berlaku untuk 5 anggota selama ${a} hari sejak pesan ini diterima. Terima kasih.`;
+    } else if (type === "non_aktif") {
+      return `Dear Bpk/Ibu ${n} jika ada calon anggota yang akan direkomendasikan bisa langsung menghubungi kami di wa ini, dan akan langsung kami follow up ke cabang terdekat.`;
+    } else {
+      return `Dear mas syam tolong dibantu atas ${n} ini kode referralnya sudah tidak aktif dan minta untuk di jadikan sebagai sahabat sehati`;
+    }
+  }
+
+  // ==================== PENYIMPANAN RIWAYAT (LOCALSTORAGE) ====================
+  function getLogs() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveLog(entry) {
+    const logs = getLogs();
+    logs.unshift(entry);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+    updateStats();
+  }
+
+  function cekSudahFollowUp(noHp) {
+    const cleanTarget = formatNomorWA(noHp);
+    if (!cleanTarget) return null;
+    const logs = getLogs();
+    return logs.find(item => formatNomorWA(item.noAnggota) === cleanTarget) || null;
+  }
+
+  function updateStats() {
+    const logs = getLogs();
+    const syamCount = logs.filter(l => l.tipe === "eskalasi_syam").length;
+    const memberCount = logs.length - syamCount;
+
+    document.getElementById("countBadge").innerText = logs.length;
+    document.getElementById("statTotal").innerText = logs.length;
+    document.getElementById("statAktif").innerText = memberCount;
+    document.getElementById("statSyam").innerText = syamCount;
+  }
+
+  // ==================== LOGIKA TAB 1: INPUT MANUAL ====================
+  function simpanNoManual() {
+    const selected = document.querySelector('input[name="templateOpt"]:checked').value;
+    if (selected !== "eskalasi_syam") {
+      savedMemberPhone = document.getElementById("noTelp").value;
+    }
+  }
+
+  function cekKodeManual() {
+    const kode = document.getElementById("kodeReferral").value.trim();
+    const optAktif = document.getElementById("optAktif");
+    const optNonAktif = document.getElementById("optNonAktif");
+    const cardAktif = document.getElementById("cardAktif");
+    const warnKode = document.getElementById("warnKode");
+
+    if (kode === "") {
+      optAktif.disabled = true;
+      cardAktif.classList.add("disabled");
+      warnKode.style.display = "block";
+      if (optAktif.checked) optNonAktif.checked = true;
+    } else {
+      optAktif.disabled = false;
+      cardAktif.classList.remove("disabled");
+      warnKode.style.display = "none";
+    }
+    handleManualTemplate();
+  }
+
+  function handleManualTemplate() {
+    const selected = document.querySelector('input[name="templateOpt"]:checked').value;
+    const noTelpInput = document.getElementById("noTelp");
+    const groupHariAktif = document.getElementById("groupHariAktif");
+
+    document.getElementById("cardAktif").classList.toggle("active", selected === "aktif");
+    document.getElementById("cardNonAktif").classList.toggle("active", selected === "non_aktif");
+    document.getElementById("cardSyam").classList.toggle("active", selected === "eskalasi_syam");
+
+    groupHariAktif.style.display = (selected === "aktif") ? "block" : "none";
+
+    if (selected === "eskalasi_syam") {
+      noTelpInput.value = NO_MAS_SYAM;
+      noTelpInput.readOnly = true;
+    } else {
+      if (noTelpInput.readOnly) {
+        noTelpInput.value = savedMemberPhone;
+        noTelpInput.readOnly = false;
+      }
+    }
+    updateManualPreview();
+  }
+
+  function updateManualPreview() {
+    const nama = document.getElementById("namaAnggota").value.trim();
+    const kode = document.getElementById("kodeReferral").value.trim();
+    const aktif = document.getElementById("hariAktif").value.trim();
+    const selected = document.querySelector('input[name="templateOpt"]:checked').value;
+    document.getElementById("previewText").innerText = buildMessage(selected, nama, kode, aktif);
+  }
+
+  function kirimManualWA() {
+    const nama = document.getElementById("namaAnggota").value.trim();
+    const rawPhone = document.getElementById("noTelp").value.trim();
+    const kode = document.getElementById("kodeReferral").value.trim();
+    const aktif = document.getElementById("hariAktif").value.trim() || "30";
+    const selected = document.querySelector('input[name="templateOpt"]:checked').value;
+
+    if (!nama) return alert("Harap isi Nama Anggota.");
+    if (!rawPhone) return alert("Harap isi Nomor Telepon.");
+    if (selected === "aktif" && !kode) return alert("Kode Referral wajib diisi untuk template Aktif.");
+
+    const targetPhone = (selected === "eskalasi_syam") ? NO_MAS_SYAM : rawPhone;
+    const memberPhoneRecord = (selected === "eskalasi_syam") ? (savedMemberPhone || "-") : rawPhone;
+    const pesan = buildMessage(selected, nama, kode, aktif);
+
+    saveLog({
+      id: Date.now(),
+      waktu: new Date().toLocaleString("id-ID"),
+      nama: nama,
+      noAnggota: memberPhoneRecord,
+      kode: kode || "-",
+      tipe: selected,
+      kategoriLabel: selected === "eskalasi_syam"
+        ? "Disarankan Sahabat Sehati (Mas Syam)"
+        : (selected === "aktif" ? "Follow Up - Referral Aktif" : "Follow Up - Referral Non-Aktif"),
+      tujuanWA: targetPhone
+    });
+
+    const waUrl = `https://wa.me/${formatNomorWA(targetPhone)}?text=${encodeURIComponent(pesan)}`;
+    window.open(waUrl, "_blank");
+  }
+
+  function resetManualForm() {
+    document.getElementById("namaAnggota").value = "";
+    document.getElementById("noTelp").value = "";
+    document.getElementById("noTelp").readOnly = false;
+    document.getElementById("kodeReferral").value = "";
+    document.getElementById("hariAktif").value = "30";
+    savedMemberPhone = "";
+    document.getElementById("optNonAktif").checked = true;
+    cekKodeManual();
+  }
+
+  // ==================== LOGIKA TAB 2: UPLOAD EXCEL ====================
+  function downloadTemplateExcel() {
+    const sampleData = [
+      { nama: "Budi Santoso", nomor: "081234567890", kode: "SHT2600012121", aktif: 30 },
+      { nama: "Siti Aminah", nomor: "085678912345", kode: "", aktif: "" }
+    ];
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data_Anggota");
+    XLSX.writeFile(wb, "Template_FollowUp_SahabatSehati.xlsx");
+  }
+
+  document.getElementById("fileExcel").addEventListener("change", function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      const wb = XLSX.read(evt.target.result, { type: "binary" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rawJson = XLSX.utils.sheet_to_json(sheet);
+
+      uploadedRows = rawJson.map((row, idx) => {
+        const nama = String(row.nama || row.Nama || row.NAMA || row["Nama Anggota"] || "").trim();
+        const nomor = String(row.nomor || row.Nomor || row.NOMOR || row["No Telp"] || row["No HP"] || "").trim();
+        const kode = String(row.kode || row.Kode || row.KODE || row["Kode Referral"] || "").trim();
+        const aktif = String(row.aktif || row.Aktif || row.AKTIF || "30").trim() || "30";
+        const defaultTemplate = kode !== "" ? "aktif" : "non_aktif";
+        return { idx, nama, nomor, kode, aktif, template: defaultTemplate, sent: false };
+      }).filter(r => r.nama !== "" || r.nomor !== "");
+
+      renderUploadTable();
+    };
+    reader.readAsBinaryString(file);
+  });
+
+  function renderUploadTable() {
+    const tbody = document.getElementById("uploadTableBody");
+    const wrap = document.getElementById("uploadTableWrap");
+    const summary = document.getElementById("uploadSummary");
+
+    tbody.innerHTML = "";
+    if (uploadedRows.length === 0) {
+      wrap.style.display = "none";
+      summary.innerText = "Tidak ada data valid ditemukan di file Excel.";
+      return;
+    }
+
+    wrap.style.display = "block";
+    summary.innerText = `Berhasil memuat ${uploadedRows.length} data anggota. Silakan pilih tindakan dan klik Kirim.`;
+
+    uploadedRows.forEach((item, index) => {
+      const existingLog = cekSudahFollowUp(item.nomor);
+      const hasKode = item.kode !== "";
+      const isSyam = item.template === "eskalasi_syam";
+
+      const tr = document.createElement("tr");
+      if (item.sent) tr.classList.add(isSyam ? "row-syam" : "row-done");
+
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+        <td><strong>${item.nama}</strong></td>
+        <td>${item.nomor}</td>
+        <td>${hasKode ? `<span class="badge badge-aktif">${item.kode}</span>` : `<span class="badge badge-warn">Kosong</span>`}</td>
+        <td>
+          <input type="number" value="${item.aktif}" min="1" style="width:65px; padding:5px;"
+            ${item.template !== "aktif" ? "disabled" : ""}
+            onchange="ubahHariRow(${index}, this.value)">
+        </td>
+        <td>
+          <select onchange="ubahTemplateRow(${index}, this.value)">
+            <option value="aktif" ${item.template === "aktif" ? "selected" : ""} ${!hasKode ? "disabled" : ""}>1. Referral Aktif</option>
+            <option value="non_aktif" ${item.template === "non_aktif" ? "selected" : ""}>2. Referral Non-Aktif</option>
+            <option value="eskalasi_syam" ${item.template === "eskalasi_syam" ? "selected" : ""}>3. Sarankan Sahabat Sehati (Mas Syam)</option>
+          </select>
+        </td>
+        <td>
+          ${existingLog
+            ? `<span class="badge badge-syam" title="${existingLog.waktu}">${existingLog.kategoriLabel}</span>`
+            : `<span style="color:#6b7280; font-size:12px;">Belum Follow Up</span>`}
+        </td>
+        <td>
+          <button type="button" class="btn-sm-wa ${isSyam ? "syam-mode" : ""} ${item.sent ? "clicked" : ""}"
+            onclick="kirimRowWA(${index})">
+            ${item.sent ? "Terkirim ✓" : (isSyam ? "Ajukan ke Mas Syam" : "Kirim WA Anggota")}
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function ubahTemplateRow(index, val) {
+    if (val === "aktif" && uploadedRows[index].kode === "") {
+      alert("Kode referral kosong, tidak bisa memilih template Aktif.");
+      renderUploadTable();
+      return;
+    }
+    uploadedRows[index].template = val;
+    renderUploadTable();
+  }
+
+  function ubahHariRow(index, val) {
+    uploadedRows[index].aktif = val || "30";
+  }
+
+  function kirimRowWA(index) {
+    const item = uploadedRows[index];
+    if (!item.nama) return alert("Nama anggota pada baris ini kosong.");
+
+    const isSyam = item.template === "eskalasi_syam";
+    const targetPhone = isSyam ? NO_MAS_SYAM : item.nomor;
+    if (!targetPhone) return alert("Nomor telepon tujuan kosong.");
+
+    const pesan = buildMessage(item.template, item.nama, item.kode, item.aktif);
+
+    saveLog({
+      id: Date.now() + index,
+      waktu: new Date().toLocaleString("id-ID"),
+      nama: item.nama,
+      noAnggota: item.nomor || "-",
+      kode: item.kode || "-",
+      tipe: item.template,
+      kategoriLabel: isSyam
+        ? "Disarankan Sahabat Sehati (Mas Syam)"
+        : (item.template === "aktif" ? "Follow Up - Referral Aktif" : "Follow Up - Referral Non-Aktif"),
+      tujuanWA: targetPhone
+    });
+
+    uploadedRows[index].sent = true;
+    renderUploadTable();
+
+    const waUrl = `https://wa.me/${formatNomorWA(targetPhone)}?text=${encodeURIComponent(pesan)}`;
+    window.open(waUrl, "_blank");
+  }
+
+  // ==================== LOGIKA TAB 3: RIWAYAT & EXPORT ====================
+  function renderRiwayat() {
+    const logs = getLogs();
+    const filter = document.getElementById("filterStatus").value;
+    const tbody = document.getElementById("riwayatTableBody");
+    tbody.innerHTML = "";
+
+    const filtered = logs.filter(item => {
+      if (filter === "FOLLOW_UP") return item.tipe !== "eskalasi_syam";
+      if (filter === "SAHABAT_SEHATI") return item.tipe === "eskalasi_syam";
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#6b7280; padding:20px;">Belum ada data riwayat tersimpan.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach((item, idx) => {
+      const isSyam = item.tipe === "eskalasi_syam";
+      const badgeClass = isSyam ? "badge-syam" : (item.tipe === "aktif" ? "badge-aktif" : "badge-nonaktif");
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td style="font-size:12px;">${item.waktu}</td>
+        <td><strong>${item.nama}</strong></td>
+        <td>${item.noAnggota}</td>
+        <td>${item.kode}</td>
+        <td><span class="badge ${badgeClass}">${item.kategoriLabel}</span></td>
+        <td>${item.tujuanWA}</td>
+        <td><button type="button" class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="hapusSatuRiwayat(${item.id})">Hapus</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function hapusSatuRiwayat(id) {
+    const logs = getLogs().filter(item => item.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+    updateStats();
+    renderRiwayat();
+  }
+
+  function hapusSemuaRiwayat() {
+    if (!confirm("Yakin ingin menghapus seluruh riwayat follow up dari browser ini?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    updateStats();
+    renderRiwayat();
+    if (uploadedRows.length > 0) renderUploadTable();
+  }
+
+  function exportRiwayatExcel() {
+    const logs = getLogs();
+    if (logs.length === 0) return alert("Belum ada data riwayat untuk diunduh.");
+
+    const dataExport = logs.map((item, idx) => ({
+      "No": idx + 1,
+      "Waktu Tindakan": item.waktu,
+      "Nama Anggota": item.nama,
+      "No HP Anggota": item.noAnggota,
+      "Kode Referral": item.kode,
+      "Status / Kategori": item.kategoriLabel,
+      "Nomor Tujuan WA": item.tujuanWA
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Riwayat_Follow_Up");
+
+    const tgl = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Laporan_FollowUp_SahabatSehati_${tgl}.xlsx`);
+  }
+
+  // Inisialisasi awal
+  cekKodeManual();
+  updateStats();
+</script>
+
+</body>
+</html>
