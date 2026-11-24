@@ -9,7 +9,7 @@
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: #f0f2f5; margin: 0; padding: 20px; color: #1f2937; }
     .container {
-      max-width: 1050px;
+      max-width: 1120px;
       margin: 10px auto;
       background: #ffffff;
       padding: 26px;
@@ -211,6 +211,12 @@
         <div id="warnKode" class="warning-text">* Kode referral kosong: otomatis memilih template Non-Aktif / Eskalasi.</div>
       </div>
 
+      <!-- INPUT BARU: ID SAHABAT SEHATI -->
+      <div class="form-group" id="groupIdSahabat">
+        <label for="idSahabat">ID Sahabat Sehati <span style="color:#dc2626;">*</span> <span style="font-weight:normal; color:#6b7280;">(Wajib untuk Template 2)</span></label>
+        <input type="text" id="idSahabat" placeholder="Contoh: SS-00123" oninput="updateManualPreview()">
+      </div>
+
       <div class="form-group" id="groupHariAktif" style="display: none;">
         <label for="hariAktif">Masa Berlaku (Hari)</label>
         <input type="number" id="hariAktif" value="30" min="1" oninput="updateManualPreview()">
@@ -231,7 +237,7 @@
             <input type="radio" name="templateOpt" id="optNonAktif" value="non_aktif" checked onchange="handleManualTemplate()">
             <div>
               <span class="radio-title">2. Kode Referral Non-Aktif</span>
-              <span class="radio-desc">Informasikan anggota untuk merekomendasikan calon anggota lewat WA ini.</span>
+              <span class="radio-desc">Informasikan anggota untuk merekomendasikan calon anggota beserta ID Sahabat Sehati.</span>
             </div>
           </label>
 
@@ -260,7 +266,7 @@
     <div class="upload-zone">
       <p style="margin-top:0; font-weight:600; color:#075E54;">Upload File Excel (.xlsx / .xls / .csv)</p>
       <p style="font-size:13px; color:#4b5563; margin-bottom:14px;">
-        Gunakan header kolom: <b>nama</b>, <b>nomor</b>, <b>kode</b> (opsional), dan <b>aktif</b> (opsional, default 30 hari).
+        Gunakan header kolom: <b>nama</b>, <b>nomor</b>, <b>kode</b> (opsional), <b>id_sahabat</b> (wajib jika template Non-Aktif), dan <b>aktif</b> (opsional, default 30 hari).
       </p>
       <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv" />
       <div style="margin-top:12px;">
@@ -278,6 +284,7 @@
             <th>Nama Anggota</th>
             <th>No. HP Anggota</th>
             <th>Kode Referral</th>
+            <th>ID Sahabat Sehati</th>
             <th>Hari Aktif</th>
             <th>Pilihan Template</th>
             <th>Status di Google Sheets</th>
@@ -330,6 +337,7 @@
             <th>Nama Anggota</th>
             <th>No. HP Anggota</th>
             <th>Kode Referral</th>
+            <th>ID Sahabat Sehati</th>
             <th>Kategori Tindakan</th>
             <th>Tujuan Kirim</th>
           </tr>
@@ -344,7 +352,6 @@
 
 <script>
   // ================= KONFIGURASI WAJIB =================
-  // TEMPEL URL WEB APP GOOGLE APPS SCRIPT ANDA DI BAWAH INI:
   const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNt-mR7siv2LYNdY9hzIBrZ4jA_8LlyMcH1qgZ-uaajV0bBlgFYlD0YXyF3GOa0iZN/exec";
   // =====================================================
 
@@ -387,7 +394,6 @@
   }
 
   async function sendLogToGoogleSheets(entry) {
-    // Tambahkan langsung ke cache lokal agar UI langsung responsif
     cachedLogs.unshift(entry);
     updateStats();
     renderRiwayat();
@@ -398,7 +404,7 @@
     try {
       await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
-        mode: "no-cors", // Menghindari blokir CORS saat POST ke Apps Script
+        mode: "no-cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entry)
       });
@@ -425,14 +431,16 @@
     return num;
   }
 
-  function buildMessage(type, nama, kode, aktif) {
+  function buildMessage(type, nama, kode, aktif, idSahabat) {
     const n = nama || "{NAMA}";
     const k = kode || "{KODE}";
     const a = aktif || "30";
+    const idS = idSahabat || "{ID_SAHABAT_SEHATI}";
+
     if (type === "aktif") {
       return `Dear Bpk/Ibu ${n}, kode referral Anda ${k} berlaku untuk 5 anggota selama ${a} hari sejak pesan ini diterima. Terima kasih.`;
     } else if (type === "non_aktif") {
-      return `Dear Bpk/Ibu ${n} jika ada calon anggota yang akan direkomendasikan bisa langsung menghubungi kami di wa ini, dan akan langsung kami follow up ke cabang terdekat.`;
+      return `Dear Bpk/Ibu ${n}, berikut ID Sahabat Sehati Bpk/Ibu: ${idS}. Jika ada calon anggota yang akan direkomendasikan bisa langsung menghubungi kami di WA ini, dan akan langsung kami follow up ke cabang terdekat.`;
     } else {
       const kSyam = kode || "-";
       return `Dear mas syam tolong dibantu atas ${n} dengan kode referral ${kSyam} ini kode referralnya sudah tidak aktif dan minta untuk di jadikan sebagai sahabat sehati`;
@@ -499,12 +507,14 @@
     const selected = document.querySelector('input[name="templateOpt"]:checked').value;
     const noTelpInput = document.getElementById("noTelp");
     const groupHariAktif = document.getElementById("groupHariAktif");
+    const groupIdSahabat = document.getElementById("groupIdSahabat");
 
     document.getElementById("cardAktif").classList.toggle("active", selected === "aktif");
     document.getElementById("cardNonAktif").classList.toggle("active", selected === "non_aktif");
     document.getElementById("cardSyam").classList.toggle("active", selected === "eskalasi_syam");
 
     groupHariAktif.style.display = (selected === "aktif") ? "block" : "none";
+    groupIdSahabat.style.display = (selected === "non_aktif") ? "block" : "none";
 
     if (selected === "eskalasi_syam") {
       noTelpInput.value = NO_MAS_SYAM;
@@ -521,31 +531,35 @@
   function updateManualPreview() {
     const nama = document.getElementById("namaAnggota").value.trim();
     const kode = document.getElementById("kodeReferral").value.trim();
+    const idSahabat = document.getElementById("idSahabat").value.trim();
     const aktif = document.getElementById("hariAktif").value.trim();
     const selected = document.querySelector('input[name="templateOpt"]:checked').value;
-    document.getElementById("previewText").innerText = buildMessage(selected, nama, kode, aktif);
+    document.getElementById("previewText").innerText = buildMessage(selected, nama, kode, aktif, idSahabat);
   }
 
   function kirimManualWA() {
     const nama = document.getElementById("namaAnggota").value.trim();
     const rawPhone = document.getElementById("noTelp").value.trim();
     const kode = document.getElementById("kodeReferral").value.trim();
+    const idSahabat = document.getElementById("idSahabat").value.trim();
     const aktif = document.getElementById("hariAktif").value.trim() || "30";
     const selected = document.querySelector('input[name="templateOpt"]:checked').value;
 
     if (!nama) return alert("Harap isi Nama Anggota.");
     if (!rawPhone) return alert("Harap isi Nomor Telepon.");
     if (selected === "aktif" && !kode) return alert("Kode Referral wajib diisi untuk template Aktif.");
+    if (selected === "non_aktif" && !idSahabat) return alert("ID Sahabat Sehati wajib diisi untuk pengiriman Template 2 (Kode Referral Non-Aktif).");
 
     const targetPhone = (selected === "eskalasi_syam") ? NO_MAS_SYAM : rawPhone;
     const memberPhoneRecord = (selected === "eskalasi_syam") ? (savedMemberPhone || "-") : rawPhone;
-    const pesan = buildMessage(selected, nama, kode, aktif);
+    const pesan = buildMessage(selected, nama, kode, aktif, idSahabat);
 
     const entry = {
       waktu: new Date().toLocaleString("id-ID"),
       nama: nama,
       noAnggota: memberPhoneRecord,
       kode: kode || "-",
+      idSahabat: idSahabat || "-",
       tipe: selected,
       kategoriLabel: selected === "eskalasi_syam"
         ? "Disarankan Sahabat Sehati (Mas Syam)"
@@ -565,6 +579,7 @@
     document.getElementById("noTelp").value = "";
     document.getElementById("noTelp").readOnly = false;
     document.getElementById("kodeReferral").value = "";
+    document.getElementById("idSahabat").value = "";
     document.getElementById("hariAktif").value = "30";
     document.getElementById("dupAlertManual").style.display = "none";
     savedMemberPhone = "";
@@ -575,8 +590,8 @@
   // ==================== LOGIKA TAB 2: UPLOAD EXCEL ====================
   function downloadTemplateExcel() {
     const sampleData = [
-      { nama: "Budi Santoso", nomor: "081234567890", kode: "SHT2600012121", aktif: 30 },
-      { nama: "Siti Aminah", nomor: "085678912345", kode: "", aktif: "" }
+      { nama: "Budi Santoso", nomor: "081234567890", kode: "SHT2600012121", id_sahabat: "", aktif: 30 },
+      { nama: "Siti Aminah", nomor: "085678912345", kode: "", id_sahabat: "SS-00123", aktif: "" }
     ];
     const ws = XLSX.utils.json_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
@@ -598,9 +613,10 @@
         const nama = String(row.nama || row.Nama || row.NAMA || row["Nama Anggota"] || "").trim();
         const nomor = String(row.nomor || row.Nomor || row.NOMOR || row["No Telp"] || row["No HP"] || "").trim();
         const kode = String(row.kode || row.Kode || row.KODE || row["Kode Referral"] || "").trim();
+        const idSahabat = String(row.id_sahabat || row.id || row.ID || row["ID Sahabat"] || row["ID Sahabat Sehati"] || "").trim();
         const aktif = String(row.aktif || row.Aktif || row.AKTIF || "30").trim() || "30";
         const defaultTemplate = kode !== "" ? "aktif" : "non_aktif";
-        return { idx, nama, nomor, kode, aktif, template: defaultTemplate, sent: false };
+        return { idx, nama, nomor, kode, idSahabat, aktif, template: defaultTemplate, sent: false };
       }).filter(r => r.nama !== "" || r.nomor !== "");
 
       renderUploadTable();
@@ -627,6 +643,7 @@
       const existingLog = cekSudahFollowUp(item.nomor);
       const hasKode = item.kode !== "";
       const isSyam = item.template === "eskalasi_syam";
+      const isNonAktif = item.template === "non_aktif";
 
       const tr = document.createElement("tr");
       if (item.sent) tr.classList.add(isSyam ? "row-syam" : "row-done");
@@ -636,6 +653,12 @@
         <td><strong>${item.nama}</strong></td>
         <td>${item.nomor}</td>
         <td>${hasKode ? `<span class="badge badge-aktif">${item.kode}</span>` : `<span class="badge badge-warn">Kosong</span>`}</td>
+        <td>
+          <input type="text" value="${item.idSahabat}" placeholder="${isNonAktif ? 'Wajib diisi' : '-'}"
+            style="width:115px; padding:5px; ${isNonAktif && !item.idSahabat ? 'border-color:#dc2626; background:#fef2f2;' : ''}"
+            ${!isNonAktif ? "disabled" : ""}
+            onchange="ubahIdSahabatRow(${index}, this.value)">
+        </td>
         <td>
           <input type="number" value="${item.aktif}" min="1" style="width:65px; padding:5px;"
             ${item.template !== "aktif" ? "disabled" : ""}
@@ -674,6 +697,11 @@
     renderUploadTable();
   }
 
+  function ubahIdSahabatRow(index, val) {
+    uploadedRows[index].idSahabat = val.trim();
+    renderUploadTable();
+  }
+
   function ubahHariRow(index, val) {
     uploadedRows[index].aktif = val || "30";
   }
@@ -682,17 +710,22 @@
     const item = uploadedRows[index];
     if (!item.nama) return alert("Nama anggota pada baris ini kosong.");
 
+    if (item.template === "non_aktif" && !item.idSahabat) {
+      return alert(`ID Sahabat Sehati untuk "${item.nama}" wajib diisi sebelum mengirim Template 2 (Referral Non-Aktif).`);
+    }
+
     const isSyam = item.template === "eskalasi_syam";
     const targetPhone = isSyam ? NO_MAS_SYAM : item.nomor;
     if (!targetPhone) return alert("Nomor telepon tujuan kosong.");
 
-    const pesan = buildMessage(item.template, item.nama, item.kode, item.aktif);
+    const pesan = buildMessage(item.template, item.nama, item.kode, item.aktif, item.idSahabat);
 
     sendLogToGoogleSheets({
       waktu: new Date().toLocaleString("id-ID"),
       nama: item.nama,
       noAnggota: item.nomor || "-",
       kode: item.kode || "-",
+      idSahabat: item.idSahabat || "-",
       tipe: item.template,
       kategoriLabel: isSyam
         ? "Disarankan Sahabat Sehati (Mas Syam)"
@@ -720,7 +753,7 @@
     });
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#6b7280; padding:20px;">Belum ada data riwayat di Google Sheets.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#6b7280; padding:20px;">Belum ada data riwayat di Google Sheets.</td></tr>`;
       return;
     }
 
@@ -734,6 +767,7 @@
         <td><strong>${item.nama}</strong></td>
         <td>${item.noAnggota}</td>
         <td>${item.kode}</td>
+        <td>${item.idSahabat || "-"}</td>
         <td><span class="badge ${badgeClass}">${item.kategoriLabel}</span></td>
         <td>${item.tujuanWA}</td>
       `;
@@ -750,6 +784,7 @@
       "Nama Anggota": item.nama,
       "No HP Anggota": item.noAnggota,
       "Kode Referral": item.kode,
+      "ID Sahabat Sehati": item.idSahabat || "-",
       "Status / Kategori": item.kategoriLabel,
       "Nomor Tujuan WA": item.tujuanWA
     }));
