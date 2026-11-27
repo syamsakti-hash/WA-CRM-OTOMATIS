@@ -16,6 +16,21 @@
       border-radius: 12px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     }
+
+    /* Login Lock Screen */
+    .login-box {
+      max-width: 400px;
+      margin: 60px auto;
+      background: #ffffff;
+      padding: 32px 26px;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .login-box h2 { margin: 0 0 8px 0; color: #075E54; font-size: 20px; }
+    .login-box p { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+    .login-error { color: #dc2626; font-size: 12px; font-weight: 600; margin-top: 10px; display: none; }
+
     .header {
       display: flex;
       justify-content: space-between;
@@ -27,6 +42,7 @@
       gap: 10px;
     }
     .header h2 { margin: 0; color: #075E54; font-size: 22px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .sync-status { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 20px; background: #ecfdf5; color: #047857; }
     .sync-status.loading { background: #fef3c7; color: #b45309; }
     .sync-status.error { background: #fee2e2; color: #b91c1c; }
@@ -51,7 +67,7 @@
     .manual-box { max-width: 620px; margin: 0 auto; }
     .form-group { margin-bottom: 15px; }
     label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #374151; }
-    input[type="text"], input[type="tel"], input[type="number"], select {
+    input[type="text"], input[type="tel"], input[type="number"], input[type="password"], select {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #d1d5db;
@@ -90,14 +106,14 @@
     }
 
     .preview-box {
-      background-color: #e7ffdb;
+      background-color: #f0fdf4;
       border: 1px solid #bbf7d0;
       border-radius: 8px;
       padding: 14px;
       margin-top: 18px;
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1.5;
-      white-space: pre-wrap;
+      color: #166534;
     }
     .preview-label { font-size: 11px; font-weight: 700; color: #075E54; text-transform: uppercase; margin-bottom: 5px; display: block; }
 
@@ -114,13 +130,14 @@
       width: 100%;
       margin-top: 16px;
     }
-    .btn-primary:hover { background-color: #1ebe5d; }
+    .btn-primary:hover:not(:disabled) { background-color: #1ebe5d; }
+    .btn-primary:disabled { background-color: #9ca3af; cursor: not-allowed; }
     .btn-secondary {
       background-color: #e5e7eb;
       color: #374151;
       border: none;
-      padding: 9px 14px;
-      font-size: 13px;
+      padding: 8px 13px;
+      font-size: 12px;
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
@@ -155,6 +172,7 @@
     }
     .btn-sm-wa.syam-mode { background: #2563eb; }
     .btn-sm-wa.clicked { background: #6b7280; }
+    .btn-sm-wa:disabled { background: #9ca3af; cursor: wait; }
 
     .upload-zone {
       border: 2px dashed #128C7E;
@@ -179,10 +197,24 @@
 </head>
 <body>
 
-<div class="container">
+<!-- LAYAR KUNCI PIN -->
+<div id="loginContainer" class="login-box">
+  <h2>Akses Terbatas</h2>
+  <p>Masukkan PIN tim untuk membuka WhatsApp Sender & Tracker - Sahabat Sehati.</p>
+  <input type="password" id="pinInput" placeholder="Masukkan PIN Akses" onkeydown="if(event.key==='Enter') submitPin()">
+  <button type="button" id="btnLogin" class="btn-primary" onclick="submitPin()">Masuk ke Sistem</button>
+  <div id="loginError" class="login-error"></div>
+  <div class="footer-brand" style="margin-top: 20px;">powered by Asy-Syam Sakti</div>
+</div>
+
+<!-- APLIKASI UTAMA -->
+<div id="appContainer" class="container" style="display: none;">
   <div class="header">
     <h2>WhatsApp Sender & Tracker - Sahabat Sehati</h2>
-    <div id="syncBadge" class="sync-status loading">Menghubungkan ke Google Sheets...</div>
+    <div class="header-actions">
+      <div id="syncBadge" class="sync-status loading">Menghubungkan...</div>
+      <button type="button" class="btn-secondary" onclick="logoutPin()">Kunci Sesi</button>
+    </div>
   </div>
 
   <div class="tabs">
@@ -211,7 +243,6 @@
         <div id="warnKode" class="warning-text">* Kode referral kosong: otomatis memilih template Non-Aktif / Eskalasi.</div>
       </div>
 
-      <!-- INPUT BARU: ID SAHABAT SEHATI -->
       <div class="form-group" id="groupIdSahabat">
         <label for="idSahabat">ID Sahabat Sehati <span style="color:#dc2626;">*</span> <span style="font-weight:normal; color:#6b7280;">(Wajib untuk Template 2)</span></label>
         <input type="text" id="idSahabat" placeholder="Contoh: SS-00123" oninput="updateManualPreview()">
@@ -229,7 +260,7 @@
             <input type="radio" name="templateOpt" id="optAktif" value="aktif" disabled onchange="handleManualTemplate()">
             <div>
               <span class="radio-title">1. Kode Referral Aktif</span>
-              <span class="radio-desc">Kirim kuota 5 anggota & masa aktif ke anggota.</span>
+              <span class="radio-desc">Kirim kuota anggota & masa aktif ke nomor anggota.</span>
             </div>
           </label>
 
@@ -244,19 +275,19 @@
           <label class="radio-card" id="cardSyam">
             <input type="radio" name="templateOpt" id="optSyam" value="eskalasi_syam" onchange="handleManualTemplate()">
             <div>
-              <span class="radio-title">3. Sarankan Jadi Sahabat Sehati (Kirim ke Mas Syam)</span>
-              <span class="radio-desc">Otomatis mengirim ke 085156327726 beserta kode referralnya untuk aktivasi Sahabat Sehati.</span>
+              <span class="radio-title">3. Sarankan Jadi Sahabat Sehati (Eskalasi Internal)</span>
+              <span class="radio-desc">Nomor tujuan & format pesan eskalasi diatur otomatis oleh server.</span>
             </div>
           </label>
         </div>
       </div>
 
       <div class="preview-box">
-        <span class="preview-label">Preview Pesan WhatsApp:</span>
+        <span class="preview-label">Ringkasan Pengiriman (Teks Final Dirakit Server):</span>
         <div id="previewText"></div>
       </div>
 
-      <button type="button" class="btn-primary" onclick="kirimManualWA()">Kirim via WhatsApp & Catat ke Google Sheets</button>
+      <button type="button" id="btnKirimManual" class="btn-primary" onclick="kirimManualWA()">Simpan ke Sheets & Buka WhatsApp</button>
       <button type="button" class="btn-secondary" style="width:100%; margin-top:8px;" onclick="resetManualForm()">Reset Form</button>
     </div>
   </div>
@@ -319,7 +350,7 @@
         <select id="filterStatus" style="width:auto;" onchange="renderRiwayat()">
           <option value="ALL">Semua Data</option>
           <option value="FOLLOW_UP">Sudah Di-Follow Up (Anggota)</option>
-          <option value="SAHABAT_SEHATI">Disarankan Sahabat Sehati (Mas Syam)</option>
+          <option value="SAHABAT_SEHATI">Disarankan Sahabat Sehati</option>
         </select>
       </div>
       <div style="display:flex; gap:8px;">
@@ -351,14 +382,56 @@
 </div>
 
 <script>
-  // ================= KONFIGURASI WAJIB =================
+  // ================= KONFIGURASI URL APPS SCRIPT =================
   const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNt-mR7siv2LYNdY9hzIBrZ4jA_8LlyMcH1qgZ-uaajV0bBlgFYlD0YXyF3GOa0iZN/exec";
-  // =====================================================
+  // ===============================================================
 
-  const NO_MAS_SYAM = "085156327726";
+  let activePin = sessionStorage.getItem("sahabat_sehati_pin") || "";
   let savedMemberPhone = "";
   let uploadedRows = [];
   let cachedLogs = [];
+
+  // ==================== AUTENTIKASI PIN ====================
+  function showLoginError(msg) {
+    const errEl = document.getElementById("loginError");
+    errEl.innerText = msg;
+    errEl.style.display = "block";
+  }
+
+  async function submitPin() {
+    const input = document.getElementById("pinInput").value.trim();
+    if (!input) return showLoginError("Harap masukkan PIN terlebih dahulu.");
+
+    const btn = document.getElementById("btnLogin");
+    btn.disabled = true;
+    btn.innerText = "Memverifikasi PIN...";
+    document.getElementById("loginError").style.display = "none";
+
+    activePin = input;
+    const valid = await fetchLogsFromGoogleSheets();
+
+    btn.disabled = false;
+    btn.innerText = "Masuk ke Sistem";
+
+    if (valid) {
+      sessionStorage.setItem("sahabat_sehati_pin", activePin);
+      document.getElementById("loginContainer").style.display = "none";
+      document.getElementById("appContainer").style.display = "block";
+      cekKodeManual();
+    } else {
+      activePin = "";
+      sessionStorage.removeItem("sahabat_sehati_pin");
+    }
+  }
+
+  function logoutPin() {
+    activePin = "";
+    cachedLogs = [];
+    sessionStorage.removeItem("sahabat_sehati_pin");
+    document.getElementById("pinInput").value = "";
+    document.getElementById("appContainer").style.display = "none";
+    document.getElementById("loginContainer").style.display = "block";
+  }
 
   // ==================== KONEKSI GOOGLE SHEETS ====================
   function setSyncBadge(state, text) {
@@ -368,15 +441,20 @@
   }
 
   async function fetchLogsFromGoogleSheets() {
-    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("TEMPEL_URL")) {
-      setSyncBadge("error", "URL Google Apps Script belum dipasang");
-      return;
-    }
-
+    if (!activePin) return false;
     setSyncBadge("loading", "Menyinkronkan data Google Sheets...");
+
     try {
-      const res = await fetch(GOOGLE_SCRIPT_URL);
+      const url = `${GOOGLE_SCRIPT_URL}?pin=${encodeURIComponent(activePin)}`;
+      const res = await fetch(url);
       const json = await res.json();
+
+      if (json.status === "unauthorized") {
+        showLoginError(json.message || "PIN akses salah.");
+        setSyncBadge("error", "PIN Tidak Valid");
+        return false;
+      }
+
       if (json.status === "success") {
         cachedLogs = json.data || [];
         updateStats();
@@ -384,34 +462,56 @@
         cekDuplikatManual();
         if (uploadedRows.length > 0) renderUploadTable();
         setSyncBadge("", "Terhubung ke Google Sheets ✓");
+        return true;
       } else {
+        showLoginError(json.message || "Gagal membaca data server.");
         setSyncBadge("error", "Gagal membaca data Sheets");
+        return false;
       }
     } catch (err) {
       console.error(err);
-      setSyncBadge("error", "Koneksi ke Google Sheets terputus");
+      showLoginError("Gagal terhubung ke server Google Apps Script.");
+      setSyncBadge("error", "Koneksi terputus");
+      return false;
     }
   }
 
-  async function sendLogToGoogleSheets(entry) {
-    cachedLogs.unshift(entry);
-    updateStats();
-    renderRiwayat();
-
-    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("TEMPEL_URL")) return;
-
-    setSyncBadge("loading", "Menyimpan ke Google Sheets...");
+  async function processServerSend(payloadData) {
+    setSyncBadge("loading", "Memproses & menyimpan ke Google Sheets...");
     try {
-      await fetch(GOOGLE_SCRIPT_URL, {
+      const res = await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry)
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          pin: activePin,
+          ...payloadData
+        })
       });
-      setSyncBadge("", "Tersimpan di Google Sheets ✓");
+
+      const json = await res.json();
+
+      if (json.status === "unauthorized") {
+        alert("Sesi kedaluwarsa atau PIN tidak valid. Silakan login ulang.");
+        logoutPin();
+        return null;
+      }
+
+      if (json.status === "success") {
+        cachedLogs.unshift(json.entry);
+        updateStats();
+        renderRiwayat();
+        setSyncBadge("", "Tersimpan di Google Sheets ✓");
+        return json.waUrl;
+      } else {
+        alert("Gagal memproses: " + (json.message || "Error server"));
+        setSyncBadge("error", "Gagal menyimpan data");
+        return null;
+      }
     } catch (err) {
       console.error(err);
-      setSyncBadge("error", "Gagal menyimpan ke Google Sheets");
+      alert("Terjadi gangguan koneksi ke server Google Apps Script.");
+      setSyncBadge("error", "Koneksi terputus");
+      return null;
     }
   }
 
@@ -424,32 +524,32 @@
     if (tabId === "tabRiwayat") renderRiwayat();
   }
 
-  // ==================== HELPER FORMAT & MESSAGE ====================
+  // ==================== HELPER FORMAT & SUMMARY ====================
   function formatNomorWA(raw) {
     let num = String(raw || "").replace(/[^0-9]/g, "");
     if (num.startsWith("0")) num = "62" + num.slice(1);
     return num;
   }
 
-  function buildMessage(type, nama, kode, aktif, idSahabat) {
-    const n = nama || "{NAMA}";
-    const k = kode || "{KODE}";
+  function buildSummaryPreview(type, nama, noTelp, kode, aktif, idSahabat) {
+    const n = nama || "-";
+    const hp = noTelp || "-";
+    const k = kode || "-";
     const a = aktif || "30";
-    const idS = idSahabat || "{ID_SAHABAT_SEHATI}";
+    const idS = idSahabat || "-";
 
     if (type === "aktif") {
-      return `Dear Bpk/Ibu ${n}, kode referral Anda ${k} berlaku untuk 5 anggota selama ${a} hari sejak pesan ini diterima. Terima kasih.`;
+      return `• Tipe: Template 1 (Referral Aktif)\n• Tujuan WA: ${hp} (${n})\n• Parameter: Kode ${k} | Masa Aktif ${a} Hari`;
     } else if (type === "non_aktif") {
-      return `Dear Bpk/Ibu ${n}, berikut ID Sahabat Sehati Bpk/Ibu: ${idS}. Jika ada calon anggota yang akan direkomendasikan bisa langsung menghubungi kami di WA ini, dan akan langsung kami follow up ke cabang terdekat.`;
+      return `• Tipe: Template 2 (Referral Non-Aktif)\n• Tujuan WA: ${hp} (${n})\n• Parameter: ID Sahabat Sehati ${idS}`;
     } else {
-      const kSyam = kode || "-";
-      return `Dear mas syam tolong dibantu atas ${n} dengan kode referral ${kSyam} ini kode referralnya sudah tidak aktif dan minta untuk di jadikan sebagai sahabat sehati`;
+      return `• Tipe: Template 3 (Eskalasi Sahabat Sehati)\n• Tujuan WA: Nomor Internal PIC (Ditetapkan Server)\n• Parameter Anggota: ${n} | Kode: ${k}`;
     }
   }
 
   function cekSudahFollowUp(noHp) {
     const cleanTarget = formatNomorWA(noHp);
-    if (!cleanTarget || cleanTarget === formatNomorWA(NO_MAS_SYAM)) return null;
+    if (!cleanTarget) return null;
     return cachedLogs.find(item => formatNomorWA(item.noAnggota) === cleanTarget) || null;
   }
 
@@ -517,11 +617,13 @@
     groupIdSahabat.style.display = (selected === "non_aktif") ? "block" : "none";
 
     if (selected === "eskalasi_syam") {
-      noTelpInput.value = NO_MAS_SYAM;
+      noTelpInput.value = "";
+      noTelpInput.placeholder = "Otomatis dikirim ke PIC Internal oleh Server";
       noTelpInput.readOnly = true;
     } else {
       if (noTelpInput.readOnly) {
         noTelpInput.value = savedMemberPhone;
+        noTelpInput.placeholder = "Contoh: 081234567890";
         noTelpInput.readOnly = false;
       }
     }
@@ -530,14 +632,15 @@
 
   function updateManualPreview() {
     const nama = document.getElementById("namaAnggota").value.trim();
+    const noTelp = document.getElementById("noTelp").value.trim();
     const kode = document.getElementById("kodeReferral").value.trim();
     const idSahabat = document.getElementById("idSahabat").value.trim();
     const aktif = document.getElementById("hariAktif").value.trim();
     const selected = document.querySelector('input[name="templateOpt"]:checked').value;
-    document.getElementById("previewText").innerText = buildMessage(selected, nama, kode, aktif, idSahabat);
+    document.getElementById("previewText").innerText = buildSummaryPreview(selected, nama, noTelp, kode, aktif, idSahabat);
   }
 
-  function kirimManualWA() {
+  async function kirimManualWA() {
     const nama = document.getElementById("namaAnggota").value.trim();
     const rawPhone = document.getElementById("noTelp").value.trim();
     const kode = document.getElementById("kodeReferral").value.trim();
@@ -546,37 +649,38 @@
     const selected = document.querySelector('input[name="templateOpt"]:checked').value;
 
     if (!nama) return alert("Harap isi Nama Anggota.");
-    if (!rawPhone) return alert("Harap isi Nomor Telepon.");
+    if (selected !== "eskalasi_syam" && !rawPhone) return alert("Harap isi Nomor Telepon Anggota.");
     if (selected === "aktif" && !kode) return alert("Kode Referral wajib diisi untuk template Aktif.");
     if (selected === "non_aktif" && !idSahabat) return alert("ID Sahabat Sehati wajib diisi untuk pengiriman Template 2 (Kode Referral Non-Aktif).");
 
-    const targetPhone = (selected === "eskalasi_syam") ? NO_MAS_SYAM : rawPhone;
     const memberPhoneRecord = (selected === "eskalasi_syam") ? (savedMemberPhone || "-") : rawPhone;
-    const pesan = buildMessage(selected, nama, kode, aktif, idSahabat);
 
-    const entry = {
-      waktu: new Date().toLocaleString("id-ID"),
+    const btn = document.getElementById("btnKirimManual");
+    btn.disabled = true;
+    btn.innerText = "Menyimpan & Menyiapkan WhatsApp...";
+
+    const waUrl = await processServerSend({
       nama: nama,
       noAnggota: memberPhoneRecord,
-      kode: kode || "-",
-      idSahabat: idSahabat || "-",
-      tipe: selected,
-      kategoriLabel: selected === "eskalasi_syam"
-        ? "Disarankan Sahabat Sehati (Mas Syam)"
-        : (selected === "aktif" ? "Follow Up - Referral Aktif" : "Follow Up - Referral Non-Aktif"),
-      tujuanWA: targetPhone
-    };
+      kode: kode,
+      idSahabat: idSahabat,
+      aktif: aktif,
+      tipe: selected
+    });
 
-    sendLogToGoogleSheets(entry);
-    cekDuplikatManual();
+    btn.disabled = false;
+    btn.innerText = "Simpan ke Sheets & Buka WhatsApp";
 
-    const waUrl = `https://wa.me/${formatNomorWA(targetPhone)}?text=${encodeURIComponent(pesan)}`;
-    window.open(waUrl, "_blank");
+    if (waUrl) {
+      cekDuplikatManual();
+      window.open(waUrl, "_blank");
+    }
   }
 
   function resetManualForm() {
     document.getElementById("namaAnggota").value = "";
     document.getElementById("noTelp").value = "";
+    document.getElementById("noTelp").placeholder = "Contoh: 081234567890";
     document.getElementById("noTelp").readOnly = false;
     document.getElementById("kodeReferral").value = "";
     document.getElementById("idSahabat").value = "";
@@ -668,7 +772,7 @@
           <select onchange="ubahTemplateRow(${index}, this.value)">
             <option value="aktif" ${item.template === "aktif" ? "selected" : ""} ${!hasKode ? "disabled" : ""}>1. Referral Aktif</option>
             <option value="non_aktif" ${item.template === "non_aktif" ? "selected" : ""}>2. Referral Non-Aktif</option>
-            <option value="eskalasi_syam" ${item.template === "eskalasi_syam" ? "selected" : ""}>3. Sarankan Sahabat Sehati (Mas Syam)</option>
+            <option value="eskalasi_syam" ${item.template === "eskalasi_syam" ? "selected" : ""}>3. Sarankan Sahabat Sehati (Internal)</option>
           </select>
         </td>
         <td>
@@ -677,9 +781,9 @@
             : `<span style="color:#6b7280; font-size:12px;">Belum Follow Up</span>`}
         </td>
         <td>
-          <button type="button" class="btn-sm-wa ${isSyam ? "syam-mode" : ""} ${item.sent ? "clicked" : ""}"
+          <button type="button" id="btnRow_${index}" class="btn-sm-wa ${isSyam ? "syam-mode" : ""} ${item.sent ? "clicked" : ""}"
             onclick="kirimRowWA(${index})">
-            ${item.sent ? "Terkirim ✓" : (isSyam ? "Ajukan ke Mas Syam" : "Kirim WA Anggota")}
+            ${item.sent ? "Terkirim ✓" : (isSyam ? "Ajukan Internal" : "Kirim WA Anggota")}
           </button>
         </td>
       `;
@@ -706,7 +810,7 @@
     uploadedRows[index].aktif = val || "30";
   }
 
-  function kirimRowWA(index) {
+  async function kirimRowWA(index) {
     const item = uploadedRows[index];
     if (!item.nama) return alert("Nama anggota pada baris ini kosong.");
 
@@ -715,29 +819,31 @@
     }
 
     const isSyam = item.template === "eskalasi_syam";
-    const targetPhone = isSyam ? NO_MAS_SYAM : item.nomor;
-    if (!targetPhone) return alert("Nomor telepon tujuan kosong.");
+    if (!isSyam && !item.nomor) return alert("Nomor telepon anggota kosong.");
 
-    const pesan = buildMessage(item.template, item.nama, item.kode, item.aktif, item.idSahabat);
+    const btn = document.getElementById(`btnRow_${index}`);
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "Memproses...";
+    }
 
-    sendLogToGoogleSheets({
-      waktu: new Date().toLocaleString("id-ID"),
+    const waUrl = await processServerSend({
       nama: item.nama,
       noAnggota: item.nomor || "-",
-      kode: item.kode || "-",
-      idSahabat: item.idSahabat || "-",
-      tipe: item.template,
-      kategoriLabel: isSyam
-        ? "Disarankan Sahabat Sehati (Mas Syam)"
-        : (item.template === "aktif" ? "Follow Up - Referral Aktif" : "Follow Up - Referral Non-Aktif"),
-      tujuanWA: targetPhone
+      kode: item.kode,
+      idSahabat: item.idSahabat,
+      aktif: item.aktif,
+      tipe: item.template
     });
 
-    uploadedRows[index].sent = true;
-    renderUploadTable();
-
-    const waUrl = `https://wa.me/${formatNomorWA(targetPhone)}?text=${encodeURIComponent(pesan)}`;
-    window.open(waUrl, "_blank");
+    if (waUrl) {
+      uploadedRows[index].sent = true;
+      renderUploadTable();
+      window.open(waUrl, "_blank");
+    } else if (btn) {
+      btn.disabled = false;
+      btn.innerText = isSyam ? "Ajukan Internal" : "Kirim WA Anggota";
+    }
   }
 
   // ==================== LOGIKA TAB 3: RIWAYAT & EXPORT ====================
@@ -797,19 +903,13 @@
     XLSX.writeFile(wb, `Laporan_FollowUp_SahabatSehati_${tgl}.xlsx`);
   }
 
-  // Inisialisasi awal
-  cekKodeManual();
-  fetchLogsFromGoogleSheets();
-</script>
-<script>
-  document.addEventListener('contextmenu', e => e.preventDefault());
-  document.onkeydown = function(e) {
-    if (e.keyCode === 123 || // F12
-       (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || // Ctrl+Shift+I / J
-       (e.ctrlKey && e.keyCode === 85)) { // Ctrl+U
-      return false;
+  // ==================== INISIALISASI SAAT HALAMAN DIBUKA ====================
+  (async function initApp() {
+    if (activePin) {
+      document.getElementById("pinInput").value = activePin;
+      await submitPin();
     }
-  };
+  })();
 </script>
 </body>
 </html>
